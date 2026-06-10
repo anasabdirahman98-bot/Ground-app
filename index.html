@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0E1311">
+  <meta name="description" content="Gestion de complexes sportifs — terrains de foot à 5 et 7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>GROUND</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ─── NETWORK BANNER ─────────────────────────────────────────────────────── -->
+<div id="network-banner" class="network-banner hidden" role="status" aria-live="polite">
+  ⚠ Hors ligne — synchronisation en attente
+</div>
+
+<!-- ─── LOGIN ──────────────────────────────────────────────────────────────── -->
+<div id="view-login">
+  <div class="login-inner">
+    <div class="login-logo">
+      <div class="login-emblem">G</div>
+      <h1>GROUND</h1>
+      <p>Gestion de complexe sportif</p>
+    </div>
+    <form id="login-form" novalidate>
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" autocomplete="email" required
+               placeholder="votre@email.com" inputmode="email">
+      </div>
+      <div class="field">
+        <label for="login-pwd">Mot de passe</label>
+        <input type="password" id="login-pwd" autocomplete="current-password" required
+               placeholder="••••••••">
+      </div>
+      <div id="login-err" class="error-msg" hidden role="alert"></div>
+      <button type="submit" class="btn btn-primary btn-full" id="login-btn">
+        Se connecter
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ─── APP SHELL ──────────────────────────────────────────────────────────── -->
+<div id="app-shell" class="app-shell hidden">
+
+  <!-- Header -->
+  <header class="app-header">
+    <span class="header-logo">GROUND</span>
+    <span id="header-user" aria-label="Utilisateur connecté"></span>
+    <button class="btn-icon" id="logout-btn" aria-label="Se déconnecter" title="Déconnexion">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- Views -->
+  <main class="app-main">
+
+    <!-- Planning -->
+    <div id="view-planning" class="view active">
+      <div class="date-nav">
+        <button class="btn-icon" id="date-prev" aria-label="Jour précédent">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <button id="date-current" class="date-current" aria-label="Sélectionner une date">
+          <span id="date-label">Aujourd'hui</span>
+          <input type="date" id="date-picker" class="sr-only" aria-hidden="true" tabindex="-1">
+        </button>
+        <button class="btn-icon" id="date-next" aria-label="Jour suivant">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+      <div class="planning-container" role="main" aria-label="Grille de planning">
+        <div id="planning-grid"></div>
+      </div>
+    </div>
+
+    <!-- Clients -->
+    <div id="view-clients" class="view">
+      <div class="search-bar">
+        <input type="search" id="client-search" placeholder="Rechercher un client…"
+               autocomplete="off" aria-label="Rechercher un client">
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab-btn active" id="client-tab-list" role="tab" aria-selected="true">Clients</button>
+        <button class="tab-btn" id="client-tab-unpaid" role="tab" aria-selected="false">Impayés</button>
+      </div>
+      <div id="clients-list-panel" role="tabpanel"></div>
+      <div id="clients-unpaid-panel" role="tabpanel" hidden></div>
+      <button class="fab" id="btn-new-client" aria-label="Nouveau client">+</button>
+    </div>
+
+    <!-- Caisse -->
+    <div id="view-caisse" class="view">
+      <div class="caisse-view">
+        <div id="caisse-summary"></div>
+        <div id="caisse-list"></div>
+        <button class="btn btn-primary btn-full" id="btn-cloture">Clôturer la caisse</button>
+      </div>
+    </div>
+
+    <!-- Dashboard (gérant) -->
+    <div id="view-dashboard" class="view">
+      <div id="dash-content" class="dash-content"></div>
+    </div>
+
+    <!-- Config (gérant) -->
+    <div id="view-config" class="view" style="display:none">
+      <div id="config-nav" class="config-nav" role="tablist"></div>
+      <div class="config-body-wrap">
+        <div id="config-body" style="padding:var(--sp-5) var(--sp-4)"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Bottom navigation -->
+  <nav class="bottom-nav" id="bottom-nav" role="navigation" aria-label="Navigation principale">
+    <button class="nav-item active" data-view="planning" aria-label="Planning">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>Planning</span>
+    </button>
+    <button class="nav-item" data-view="clients" aria-label="Clients">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span>Clients</span>
+    </button>
+    <button class="nav-item" data-view="caisse" aria-label="Caisse">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+        <line x1="1" y1="10" x2="23" y2="10"/>
+      </svg>
+      <span>Caisse</span>
+    </button>
+    <button class="nav-item gerant-only" data-view="dashboard" aria-label="Dashboard">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="nav-item gerant-only" data-view="config" aria-label="Configuration">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      <span>Config</span>
+    </button>
+  </nav>
+
+</div><!-- /app-shell -->
+
+<!-- ─── BOTTOM SHEETS ───────────────────────────────────────────────────────── -->
+
+<!-- Reservation form -->
+<div id="sheet-resa-form" class="sheet" role="dialog" aria-modal="true" aria-labelledby="srf-title">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-header">
+    <h2 class="sheet-title" id="srf-title">Réserver ce créneau</h2>
+    <button class="btn-icon sheet-close" data-sheet="resa-form" aria-label="Fermer">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="resa-info-bar">
+      <div class="rib-row"><span class="rib-label">Terrain</span><span class="rib-val" id="rf-terrain"></span></div>
+      <div class="rib-row"><span class="rib-label">Créneau</span><span class="rib-val" id="rf-slot"></span></div>
+      <div class="rib-row" style="grid-column:1/-1"><span class="rib-label">Date</span><span class="rib-val" id="rf-date"></span></div>
+    </div>
+    <form id="resa-form" novalidate>
+      <div class="field">
+        <label for="rf-client-search">Client</label>
+        <div class="dropdown-wrap">
+          <input type="search" id="rf-client-search" placeholder="Rechercher ou créer…"
+                 autocomplete="off" aria-autocomplete="list" aria-controls="rf-client-drop">
+          <div id="rf-client-drop" class="dropdown" hidden role="listbox"></div>
+        </div>
+        <input type="hidden" id="rf-client-id">
+        <div id="rf-client-chip" class="client-chip" hidden aria-live="polite"></div>
+      </div>
+      <div class="field">
+        <label for="resa-montant">Montant (FDJ)</label>
+        <input type="number" id="resa-montant" min="0" step="500" required inputmode="numeric">
+        <span class="amount-hint" id="resa-montant-hint"></span>
+      </div>
+      <div class="field">
+        <span class="field-label" style="font-size:.85rem;color:var(--texte-2);font-weight:500;margin-bottom:var(--sp-1)">Paiement</span>
+        <div class="radio-group" role="radiogroup" aria-label="Statut paiement">
+          <label class="radio-option"><input type="radio" name="rstp" value="a_payer" checked><span>À payer</span></label>
+          <label class="radio-option"><input type="radio" name="rstp" value="acompte"><span>Acompte</span></label>
+          <label class="radio-option"><input type="radio" name="rstp" value="paye"><span>Payé</span></label>
+        </div>
+      </div>
+      <div class="field" id="resa-mode-field" hidden>
+        <label for="resa-mode">Mode de paiement</label>
+        <select id="resa-mode"></select>
+      </div>
+      <div class="field">
+        <label for="resa-notes">Notes (optionnel)</label>
+        <textarea id="resa-notes" rows="2" placeholder="Informations complémentaires…"></textarea>
+      </div>
+      <div id="resa-form-err" class="error-msg" hidden role="alert"></div>
+      <button type="submit" class="btn btn-primary btn-full">Réserver ce créneau</button>
+    </form>
+  </div>
+</div>
+
+<!-- Reservation detail -->
+<div id="sheet-resa-detail" class="sheet" role="dialog" aria-modal="true" aria-labelledby="srd-title">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-header">
+    <h2 class="sheet-title" id="srd-title">Réservation</h2>
+    <button class="btn-icon sheet-close" data-sheet="resa-detail" aria-label="Fermer">✕</button>
+  </div>
+  <div class="sheet-body" id="sheet-resa-detail-body"></div>
+</div>
+
+<!-- Payment -->
+<div id="sheet-payment" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sp-title">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-header">
+    <h2 class="sheet-title" id="sp-title">Encaisser</h2>
+    <button class="btn-icon sheet-close" data-sheet="payment" aria-label="Fermer">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="resa-info-bar" style="margin-bottom:var(--sp-4)">
+      <div class="rib-row"><span class="rib-label">Client</span><span class="rib-val" id="pay-client"></span></div>
+      <div class="rib-row"><span class="rib-label">Solde dû</span><span class="rib-val" id="pay-solde"></span></div>
+    </div>
+    <form id="payment-form" novalidate>
+      <div class="field">
+        <label for="payment-montant">Montant à encaisser (FDJ)</label>
+        <input type="number" id="payment-montant" min="1" step="500" required inputmode="numeric">
+      </div>
+      <div class="field">
+        <label for="payment-mode">Mode de paiement</label>
+        <select id="payment-mode"></select>
+      </div>
+      <div id="payment-err" class="error-msg" hidden role="alert"></div>
+      <button type="submit" class="btn btn-primary btn-full">Confirmer l'encaissement</button>
+    </form>
+  </div>
+</div>
+
+<!-- Client form -->
+<div id="sheet-client-form" class="sheet" role="dialog" aria-modal="true" aria-labelledby="scf-title">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-header">
+    <h2 class="sheet-title" id="cf-title">Nouveau client</h2>
+    <button class="btn-icon" id="cf-close" aria-label="Fermer">✕</button>
+  </div>
+  <div class="sheet-body">
+    <form id="client-form" novalidate>
+      <input type="hidden" id="cf-id">
+      <div class="field"><label for="cf-nom">Nom / Équipe</label><input type="text" id="cf-nom" required placeholder="FC Balbala"></div>
+      <div class="field"><label for="cf-tel">Téléphone</label><input type="tel" id="cf-tel" placeholder="+253 77 …" inputmode="tel"></div>
+      <div class="field">
+        <label for="cf-type">Type</label>
+        <select id="cf-type">
+          <option value="equipe">Équipe</option>
+          <option value="individu">Individu</option>
+        </select>
+      </div>
+      <div class="field"><label for="cf-notes">Notes</label><textarea id="cf-notes" rows="2"></textarea></div>
+      <div id="cf-err" class="error-msg" hidden role="alert"></div>
+      <button type="submit" class="btn btn-primary btn-full">Enregistrer</button>
+    </form>
+  </div>
+</div>
+
+<!-- ─── MODALS ─────────────────────────────────────────────────────────────── -->
+
+<!-- Modal overlay (shared) -->
+<div id="modal-overlay" class="modal-overlay hidden">
+  <!-- Cancel reservation modal -->
+  <div id="modal-cancel" class="modal-box" role="dialog" aria-modal="true" aria-labelledby="mc-title" hidden>
+    <h2 id="mc-title">Annuler la réservation</h2>
+    <div class="field">
+      <label for="cancel-motif">Motif (obligatoire)</label>
+      <textarea id="cancel-motif" required rows="3" placeholder="Raison de l'annulation…"></textarea>
+    </div>
+    <div id="cancel-err" class="error-msg" hidden role="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancel-close">Retour</button>
+      <button class="btn btn-danger" id="cancel-confirm">Annuler la réservation</button>
+    </div>
+  </div>
+
+  <!-- Clôture modal -->
+  <div id="modal-cloture" class="modal-box" role="dialog" aria-modal="true" aria-labelledby="mcl-title" hidden>
+    <h2 id="mcl-title">Clôturer la caisse</h2>
+    <div id="cloture-theorique" class="cloture-row"></div>
+    <div class="field">
+      <label for="cloture-compte">Espèces comptées (FDJ)</label>
+      <input type="number" id="cloture-compte" min="0" step="500" required inputmode="numeric" placeholder="0">
+    </div>
+    <div id="cloture-ecart-row" class="cloture-ecart-row" hidden>
+      Écart : <strong id="cloture-ecart-val"></strong>
+    </div>
+    <div class="field">
+      <label for="cloture-commentaire">Commentaire (optionnel)</label>
+      <textarea id="cloture-commentaire" rows="2"></textarea>
+    </div>
+    <div id="cloture-err" class="error-msg" hidden role="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cloture-cancel">Annuler</button>
+      <button class="btn btn-primary" id="cloture-confirm">Clôturer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sheet overlay -->
+<div id="sheet-overlay" class="sheet-overlay hidden" aria-hidden="true"></div>
+
+<!-- Toasts -->
+<div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+<!-- ─── APP SCRIPT ──────────────────────────────────────────────────────────── -->
+<script type="module">
+  import { onUserChange, login, logout, getCurrentUser, getCurrentUserData } from './js/auth.js';
+  import { onConnected, getConfig, onConfig } from './js/db.js';
+  import { init as initPlanning, destroy as destroyPlanning } from './js/planning.js';
+  import { init as initCaisse, destroy as destroyCaisse } from './js/caisse.js';
+  import { init as initClients, destroy as destroyClients } from './js/clients.js';
+  import { init as initDashboard, destroy as destroyDashboard } from './js/dashboard.js';
+  import { init as initConfig, destroy as destroyConfig } from './js/config.js';
+
+  // ─── STATE ────────────────────────────────────────────────────────────────
+
+  let _config = {};
+  let _currentView = 'planning';
+  const _destroyers = {};
+
+  // ─── NETWORK ──────────────────────────────────────────────────────────────
+
+  onConnected(connected => {
+    document.getElementById('network-banner').classList.toggle('hidden', connected);
+  });
+
+  // ─── AUTH FLOW ────────────────────────────────────────────────────────────
+
+  const loginView = document.getElementById('view-login');
+  const appShell = document.getElementById('app-shell');
+
+  onUserChange((user, userData) => {
+    if (user && userData?.actif) {
+      loginView.style.display = 'none';
+      appShell.classList.remove('hidden');
+      document.getElementById('header-user').textContent = userData.nom || user.email;
+
+      const isGerant = userData.role === 'gerant';
+      document.querySelectorAll('.gerant-only').forEach(el => {
+        el.style.display = isGerant ? '' : 'none';
+      });
+
+      _startConfigListener(user, userData);
+    } else {
+      loginView.style.display = '';
+      appShell.classList.add('hidden');
+      document.getElementById('header-user').textContent = '';
+    }
+  });
+
+  // Login form
+  document.getElementById('login-form').onsubmit = async e => {
+    e.preventDefault();
+    const errEl = document.getElementById('login-err');
+    const btn = document.getElementById('login-btn');
+    errEl.hidden = true;
+    btn.disabled = true;
+    btn.textContent = 'Connexion…';
+    try {
+      await login(
+        document.getElementById('login-email').value.trim(),
+        document.getElementById('login-pwd').value
+      );
+    } catch (err) {
+      let msg = err.message;
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        msg = 'Email ou mot de passe incorrect.';
+      } else if (err.code === 'auth/too-many-requests') {
+        msg = 'Trop de tentatives. Réessayez plus tard.';
+      }
+      errEl.textContent = msg;
+      errEl.hidden = false;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Se connecter';
+    }
+  };
+
+  // Logout
+  document.getElementById('logout-btn').onclick = async () => {
+    if (confirm('Se déconnecter ?')) {
+      _destroyCurrentView();
+      await logout();
+    }
+  };
+
+  // ─── CONFIG LISTENER ──────────────────────────────────────────────────────
+
+  let _configUnsub = null;
+
+  function _startConfigListener(user, userData) {
+    _configUnsub?.();
+    _configUnsub = onConfig(cfg => {
+      _config = cfg;
+      // Reinit current view with updated config
+      _initView(_currentView, user, userData, true);
+    });
+  }
+
+  // ─── NAVIGATION ───────────────────────────────────────────────────────────
+
+  document.getElementById('bottom-nav').onclick = e => {
+    const btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    _navigate(btn.dataset.view);
+  };
+
+  function _navigate(viewName) {
+    if (viewName === _currentView) return;
+    _destroyCurrentView();
+    _currentView = viewName;
+
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+
+    const viewEl = document.getElementById(`view-${viewName}`);
+    if (viewEl) {
+      viewEl.classList.add('active');
+      // config view uses display:flex but toggled via style
+      if (viewEl.style.display === 'none') viewEl.style.display = '';
+    }
+    document.querySelector(`[data-view="${viewName}"]`)?.classList.add('active');
+
+    const user = getCurrentUser();
+    const userData = getCurrentUserData();
+    if (user && userData) _initView(viewName, user, userData, false);
+  }
+
+  function _destroyCurrentView() {
+    _destroyers[_currentView]?.();
+    delete _destroyers[_currentView];
+  }
+
+  function _initView(name, user, userData, isRefresh) {
+    const ctx = { uid: user.uid, nom: userData.nom || user.email, role: userData.role };
+    if (!isRefresh) _destroyers[name]?.();
+
+    switch (name) {
+      case 'planning':
+        initPlanning(_config, ctx);
+        _destroyers.planning = destroyPlanning;
+        break;
+      case 'clients':
+        initClients(_config, ctx);
+        _destroyers.clients = destroyClients;
+        break;
+      case 'caisse':
+        initCaisse(_config, ctx);
+        _destroyers.caisse = destroyCaisse;
+        break;
+      case 'dashboard':
+        initDashboard(_config, ctx);
+        _destroyers.dashboard = destroyDashboard;
+        break;
+      case 'config':
+        initConfig(_config, ctx);
+        _destroyers.config = destroyConfig;
+        break;
+    }
+  }
+
+  // Service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+</script>
+</body>
+</html>
