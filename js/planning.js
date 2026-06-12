@@ -1,12 +1,15 @@
 import {
   onReservationsForDate, createReservation, updateReservation,
   cancelReservation, createPaiement, getPaiementsForDate,
-  onClients, createClient, addJournalEntry
+  onClients, createClient, addJournalEntry, addRecurrenceException
 } from './db.js';
 import {
   todayDate, addDays, formatDate, generateSlots, getTarif,
   formatFDJ, formatDateTime, creneauClass, statutLabel, modePaiementLabel, showToast
 } from './utils.js';
+import {
+  init as initRec, destroy as destroyRec, materializeForDate
+} from './recurrences.js';
 
 const $ = id => document.getElementById(id);
 
@@ -16,6 +19,7 @@ let _date = todayDate();
 let _resas = [];
 let _clients = [];
 let _unsubs = [];
+const _materializedDates = new Set();
 
 export function init(config, user) {
   // Clean up any previous subscriptions before re-initializing
@@ -34,13 +38,16 @@ export function init(config, user) {
     _bindSheetHandlers();
   }
 
+  initRec(config, user);
   _startClientsListener();
   _loadDate(_date);
 }
 
 export function destroy() {
+  destroyRec();
   _unsubs.forEach(fn => fn());
   _unsubs = [];
+  _materializedDates.clear();
 }
 
 // ─── DATE NAVIGATION ─────────────────────────────────────────────────────────
@@ -51,6 +58,7 @@ function _bindDateNav() {
   const picker = $('date-picker');
   $('date-current').onclick = () => picker.showPicker ? picker.showPicker() : picker.click();
   picker.onchange = e => { if (e.target.value) _loadDate(e.target.value); };
+  $('btn-recurrences').onclick = () => openSheet('recurrences');
 }
 
 function _loadDate(date) {
@@ -63,6 +71,10 @@ function _loadDate(date) {
 
   const unsub = onReservationsForDate(date, resas => {
     _resas = resas;
+    if (!_materializedDates.has(date)) {
+      _materializedDates.add(date);
+      materializeForDate(date, resas, _user).catch(() => {});
+    }
     _renderGrid();
   });
   unsub._key = 'resas';
@@ -326,6 +338,13 @@ async function _openResaDetail(resa) {
   const solde = Math.max(0, resa.montant - totalPaye);
   const terrain = _cfg.terrains?.[resa.terrainId];
   const statLabel = statutLabel(resa.statut, resa.statutPaiement);
+  const client = _clients.find(c => c.id === resa.clientId);
+  const waPhone = _waPhone(client?.telephone);
+  const waText = waPhone ? encodeURIComponent(
+    `Bonjour ${resa.clientNom} ! Rappel réservation :\n` +
+    `${terrain?.nom || resa.terrainId} · ${resa.creneau} · ${_date}\n` +
+    `Montant : ${formatFDJ(resa.montant)}`
+  ) : '';
 
   const canPay = resa.statut === 'confirmee' && solde > 0;
   const canCheckin = resa.statut === 'confirmee';
@@ -346,6 +365,7 @@ async function _openResaDetail(resa) {
   $('sheet-resa-detail-body').innerHTML = `
     <div class="det-status">
       <span class="badge badge-${resa.statut === 'annulee' ? 'annulee' : resa.statutPaiement}">${statLabel}</span>
+      ${resa.recurrenceId ? '<span class="rec-badge">↻ Récurrence</span>' : ''}
     </div>
     <dl class="det-dl">
       <div class="det-row"><dt>Terrain</dt><dd>${esc(terrain?.nom || resa.terrainId)}</dd></div>
@@ -362,6 +382,7 @@ async function _openResaDetail(resa) {
     <div class="det-actions">
       ${canPay ? `<button class="btn btn-primary" id="da-pay">Encaisser ${formatFDJ(solde)}</button>` : ''}
       ${canCheckin ? `<button class="btn btn-secondary" id="da-checkin">Check-in ✓</button>` : ''}
+      ${waPhone ? `<a class="btn btn-wa" href="https://wa.me/${waPhone}?text=${waText}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}
       ${canNoshow ? `<button class="btn btn-ghost btn-sm" id="da-noshow">No-show</button>` : ''}
       ${canCancel ? `<button class="btn btn-danger btn-sm" id="da-cancel">Annuler</button>` : ''}
     </div>`;
@@ -369,6 +390,7 @@ async function _openResaDetail(resa) {
   openSheet('resa-detail');
 
   if (canPay) $('da-pay').onclick = () => _openPaySheet(resa, solde);
+
   if (canCheckin) $('da-checkin').onclick = async () => {
     try {
       await updateReservation(_date, resa.id, { statut: 'terminee' });
@@ -464,6 +486,9 @@ function _openCancelModal(resa) {
     $('cancel-confirm').disabled = true;
     try {
       await cancelReservation(_date, resa.id, motif, resa);
+      if (resa.recurrenceId) {
+        await addRecurrenceException(resa.recurrenceId, _date);
+      }
       await addJournalEntry(_date, {
         action: 'annulation', userId: _user.uid, userNom: _user.nom,
         details: `${resa.clientNom} ${resa.creneau} — ${motif}`
@@ -506,6 +531,14 @@ function _fillModeSelect(id) {
   const modes = _cfg.modesPaiement || ['especes', 'dmoney', 'waafi', 'autre'];
   const labels = { especes: 'Espèces', dmoney: 'D-Money', waafi: 'Waafi', autre: 'Autre' };
   $(id).innerHTML = modes.map(m => `<option value="${m}">${labels[m] || m}</option>`).join('');
+}
+
+function _waPhone(tel) {
+  const d = (tel || '').replace(/\D/g, '');
+  if (!d) return '';
+  if (d.length === 8) return '253' + d;
+  if (d.startsWith('253')) return d;
+  return d;
 }
 
 function esc(s) {

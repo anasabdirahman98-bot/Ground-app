@@ -11,6 +11,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/app.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -76,6 +77,12 @@
         <button class="btn-icon" id="date-next" aria-label="Jour suivant">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
+        <button class="btn-icon" id="btn-recurrences" aria-label="Réservations récurrentes" title="Récurrences">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
       </div>
       <div class="planning-container" role="main" aria-label="Grille de planning">
         <div id="planning-grid"></div>
@@ -108,7 +115,20 @@
 
     <!-- Dashboard (gérant) -->
     <div id="view-dashboard" class="view">
-      <div id="dash-content" class="dash-content"></div>
+      <div class="tabs dash-tabs" role="tablist">
+        <button class="tab-btn active" id="dash-tab-today" role="tab">Aujourd'hui</button>
+        <button class="tab-btn" id="dash-tab-stats" role="tab">Analyses</button>
+        <button class="tab-btn" id="dash-tab-clotures" role="tab">Clôtures</button>
+      </div>
+      <div id="dash-panel-today" class="dash-panel">
+        <div id="dash-content" class="dash-content"></div>
+      </div>
+      <div id="dash-panel-stats" class="dash-panel" hidden>
+        <div id="stats-content" class="dash-content"></div>
+      </div>
+      <div id="dash-panel-clotures" class="dash-panel" hidden>
+        <div id="clotures-content" class="dash-content"></div>
+      </div>
     </div>
 
     <!-- Config (gérant) -->
@@ -316,6 +336,79 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="cloture-cancel">Annuler</button>
       <button class="btn btn-primary" id="cloture-confirm">Clôturer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Recurrences sheet -->
+<div id="sheet-recurrences" class="sheet" role="dialog" aria-modal="true" aria-labelledby="srec-title">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-header">
+    <h2 class="sheet-title" id="srec-title">Récurrences</h2>
+    <button class="btn btn-sm btn-ghost" id="btn-new-rec">+ Nouveau</button>
+    <button class="btn-icon sheet-close" data-sheet="recurrences" aria-label="Fermer">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div id="rec-list-section">
+      <div id="rec-list"></div>
+    </div>
+    <div id="rec-form-section" hidden>
+      <form id="rec-form" novalidate>
+        <div class="field">
+          <label for="rec-f-client-search">Client</label>
+          <div class="dropdown-wrap">
+            <input type="search" id="rec-f-client-search" placeholder="Rechercher un client…" autocomplete="off">
+            <div id="rec-f-client-drop" class="dropdown" hidden role="listbox"></div>
+          </div>
+          <input type="hidden" id="rec-f-client-id">
+          <div id="rec-f-client-chip" class="client-chip" hidden></div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="rec-f-terrain">Terrain</label>
+            <select id="rec-f-terrain"></select>
+          </div>
+          <div class="field">
+            <label for="rec-f-creneau">Créneau</label>
+            <select id="rec-f-creneau"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="rec-f-montant">Montant (FDJ)</label>
+          <input type="number" id="rec-f-montant" min="0" step="500" inputmode="numeric" placeholder="0">
+        </div>
+        <div class="field">
+          <span class="field-label" style="font-size:.85rem;color:var(--texte-2);font-weight:500">Jours de répétition</span>
+          <div class="day-picker">
+            <label class="day-toggle-label"><input type="checkbox" class="day-toggle" value="1"><span>Lun</span></label>
+            <label class="day-toggle-label"><input type="checkbox" class="day-toggle" value="2"><span>Mar</span></label>
+            <label class="day-toggle-label"><input type="checkbox" class="day-toggle" value="3"><span>Mer</span></label>
+            <label class="day-toggle-label"><input type="checkbox" class="day-toggle" value="4"><span>Jeu</span></label>
+            <label class="day-toggle-label"><input type="checkbox" class="day-toggle" value="5"><span>Ven</span></label>
+            <label class="day-toggle-label"><input type="checkbox" class="day-toggle" value="6"><span>Sam</span></label>
+            <label class="day-toggle-label"><input type="checkbox" class="day-toggle" value="0"><span>Dim</span></label>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="rec-f-date-debut">Date début</label>
+            <input type="date" id="rec-f-date-debut">
+          </div>
+          <div class="field">
+            <label for="rec-f-date-fin">Date fin (opt.)</label>
+            <input type="date" id="rec-f-date-fin">
+          </div>
+        </div>
+        <div class="field">
+          <label for="rec-f-notes">Notes (optionnel)</label>
+          <textarea id="rec-f-notes" rows="2"></textarea>
+        </div>
+        <div id="rec-form-err" class="error-msg" hidden role="alert"></div>
+        <div class="rec-form-btns">
+          <button type="button" class="btn btn-ghost" id="rec-form-back">← Retour</button>
+          <button type="submit" class="btn btn-primary">Créer la récurrence</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

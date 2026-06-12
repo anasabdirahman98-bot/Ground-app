@@ -805,3 +805,125 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 .mt-6 { margin-top: var(--sp-6); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 .loading-msg { color: var(--texte-2); padding: var(--sp-6) var(--sp-4); text-align: center; font-size: .9rem; }
+.lime { color: var(--lime); }
+
+/* ─── WHATSAPP BUTTON ───────────────────────────────────────────────────────── */
+.btn-wa {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--touch);
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-md);
+  font-weight: 600;
+  font-size: .95rem;
+  background: #25D366;
+  color: #fff;
+  text-decoration: none;
+  flex: 1;
+  min-width: 120px;
+}
+.btn-wa:active { transform: scale(.97); }
+
+/* ─── RECURRENCE BADGE ──────────────────────────────────────────────────────── */
+.rec-badge {
+  display: inline-block;
+  margin-left: var(--sp-2);
+  padding: 2px var(--sp-2);
+  border-radius: 20px;
+  font-size: .72rem;
+  font-weight: 600;
+  background: rgba(47,143,70,.2);
+  color: var(--gazon);
+  border: 1px solid var(--gazon);
+}
+
+/* ─── RECURRENCES SHEET ─────────────────────────────────────────────────────── */
+.rec-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-bottom: 1px solid var(--line);
+}
+.rec-card.rec-suspended { opacity: .55; }
+.rec-left { flex: 1; }
+.rec-nom { font-weight: 600; font-size: .95rem; }
+.rec-meta { font-size: .8rem; color: var(--texte-2); margin-top: 2px; }
+.rec-jours { font-size: .78rem; color: var(--gazon); margin-top: 4px; font-weight: 500; }
+.rec-fin { font-size: .75rem; color: var(--texte-2); margin-top: 2px; }
+.rec-form-btns { display: flex; gap: var(--sp-3); margin-top: var(--sp-2); }
+.rec-form-btns .btn { flex: 1; }
+
+/* ─── DAY PICKER ────────────────────────────────────────────────────────────── */
+.day-picker { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); }
+.day-toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1.5px solid var(--line);
+  cursor: pointer;
+  font-size: .85rem;
+  font-weight: 600;
+  transition: border-color .15s, background .15s, color .15s;
+  user-select: none;
+}
+.day-toggle-label input { display: none; }
+.day-toggle-label:has(input:checked) { border-color: var(--gazon); background: var(--gazon-dim); color: var(--lime); }
+.day-toggle-label span { pointer-events: none; }
+
+/* ─── DASHBOARD TABS PANEL ──────────────────────────────────────────────────── */
+.dash-tabs { flex-shrink: 0; }
+.dash-panel { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.dash-panel[hidden] { display: none !important; }
+
+/* ─── STATS TAB ─────────────────────────────────────────────────────────────── */
+.period-sel { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.period-btn {
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--line);
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--texte-2);
+  background: var(--surface-2);
+  transition: border-color .15s, color .15s;
+}
+.period-btn.active { border-color: var(--gazon); color: var(--lime); background: var(--gazon-dim); }
+.stats-total { font-size: .95rem; color: var(--texte-2); margin-bottom: var(--sp-2); }
+.chart-wrap { height: 200px; position: relative; margin: var(--sp-3) 0; }
+.emp-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.emp-row { display: flex; justify-content: space-between; align-items: center; padding: var(--sp-3) var(--sp-4); background: var(--surface); border-radius: var(--r-md); border: 1px solid var(--line); }
+.emp-nom { font-weight: 500; font-size: .9rem; }
+.emp-ca { font-family: var(--font-title); font-weight: 700; }
+.export-btns { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+
+/* ─── CLÔTURES HISTORY ──────────────────────────────────────────────────────── */
+.clotures-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.cl-card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.cl-card.cl-bad { border-color: rgba(224,90,78,.4); }
+.cl-card.cl-ok { border-color: rgba(70,179,106,.25); }
+.cl-date {
+  padding: var(--sp-3) var(--sp-4);
+  font-family: var(--font-title);
+  font-weight: 600;
+  font-size: .9rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+.cl-rows { padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); }
+.cl-row { display: flex; justify-content: space-between; font-size: .9rem; }
+.cl-ecart-row { font-weight: 600; padding-top: var(--sp-2); border-top: 1px solid var(--line); }
+.cl-comment { font-size: .8rem; color: var(--texte-2); font-style: italic; }
+.cl-meta { font-size: .78rem; color: var(--texte-2); margin-top: var(--sp-1); }
