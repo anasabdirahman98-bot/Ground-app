@@ -904,6 +904,58 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 .emp-ca { font-family: var(--font-title); font-weight: 700; }
 .export-btns { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
 
+/* ─── ÉVÉNEMENTS / TOURNOIS ─────────────────────────────────────────────────── */
+.pg-evt {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface-2),
+    var(--surface-2) 8px,
+    color-mix(in srgb, var(--acompte) 12%, var(--surface-2)) 8px,
+    color-mix(in srgb, var(--acompte) 12%, var(--surface-2)) 16px
+  );
+  border-left: 3px solid var(--acompte);
+  cursor: pointer;
+}
+.pg-evt-label { font-size: .68rem; color: var(--acompte); font-weight: 600; }
+
+.evt-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  width: 100%;
+  text-align: left;
+  transition: background .15s;
+}
+.evt-card:hover { background: var(--surface-2); }
+.evt-card.evt-fini { opacity: .55; }
+.evt-left { flex: 1; }
+.evt-nom { font-weight: 600; font-size: .95rem; }
+.evt-meta { font-size: .8rem; color: var(--texte-2); margin-top: 2px; }
+.evt-frais { font-size: .78rem; color: var(--lime); margin-top: 2px; }
+
+.evt-creneaux-picker { max-height: 132px; overflow-y: auto; }
+.evt-check { width: auto; padding: 0 var(--sp-3); min-width: 52px; }
+
+.equipe-list { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.equipe-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+}
+.eq-left { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.eq-nom { font-weight: 600; font-size: .9rem; }
+.eq-tel { font-size: .78rem; color: var(--texte-2); }
+.eq-pay { flex-shrink: 0; white-space: nowrap; }
+.equipe-form { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+
 /* ─── CLÔTURES HISTORY ──────────────────────────────────────────────────────── */
 .clotures-list { display: flex; flex-direction: column; gap: var(--sp-3); }
 .cl-card {

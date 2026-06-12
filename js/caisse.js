@@ -78,7 +78,7 @@ function _renderList() {
       <div class="fi-left">
         <span class="fi-mode">${modePaiementLabel(p.mode)}</span>
         <span class="fi-meta">${esc(p.employeNom)} · ${formatDateTime(p.timestamp)}</span>
-        ${p.motif ? `<span class="fi-motif">Ajustement : ${esc(p.motif)}</span>` : ''}
+        ${p.motif ? `<span class="fi-motif">${p.type === 'ajustement' ? 'Ajustement : ' : ''}${esc(p.motif)}</span>` : ''}
       </div>
       <span class="fi-amt ${p.type === 'ajustement' ? 'neg' : 'pos'}">${sign}${formatFDJ(Math.abs(p.montant))}</span>
     </div>`;

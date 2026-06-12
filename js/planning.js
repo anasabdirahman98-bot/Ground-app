@@ -10,6 +10,9 @@ import {
 import {
   init as initRec, destroy as destroyRec, materializeForDate
 } from './recurrences.js';
+import {
+  init as initEvt, destroy as destroyEvt, getBlockedSlot, openEvtDetail
+} from './evenements.js';
 
 const $ = id => document.getElementById(id);
 
@@ -39,12 +42,14 @@ export function init(config, user) {
   }
 
   initRec(config, user);
+  initEvt(config, user, _renderGrid);
   _startClientsListener();
   _loadDate(_date);
 }
 
 export function destroy() {
   destroyRec();
+  destroyEvt();
   _unsubs.forEach(fn => fn());
   _unsubs = [];
   _materializedDates.clear();
@@ -59,6 +64,7 @@ function _bindDateNav() {
   $('date-current').onclick = () => picker.showPicker ? picker.showPicker() : picker.click();
   picker.onchange = e => { if (e.target.value) _loadDate(e.target.value); };
   $('btn-recurrences').onclick = () => openSheet('recurrences');
+  $('btn-evenements').onclick = () => openSheet('evenements');
 }
 
 function _loadDate(date) {
@@ -73,7 +79,8 @@ function _loadDate(date) {
     _resas = resas;
     if (!_materializedDates.has(date)) {
       _materializedDates.add(date);
-      materializeForDate(date, resas, _user).catch(() => {});
+      materializeForDate(date, resas, _user, (tid, slot) => !!getBlockedSlot(date, tid, slot))
+        .catch(() => {});
     }
     _renderGrid();
   });
@@ -126,7 +133,13 @@ function _renderGrid() {
     active.forEach(([tid]) => {
       const resa = resaMap[`${tid}_${slot}`];
       const cls = creneauClass(resa);
-      if (!resa) {
+      const evt = !resa ? getBlockedSlot(_date, tid, slot) : null;
+      if (evt) {
+        html += `<button class="pg-cell pg-evt" data-evt="${evt.id}" aria-label="Bloqué — ${esc(evt.nom)}">
+          <span class="pg-nom">🏆 ${esc(evt.nom)}</span>
+          <span class="pg-evt-label">Événement</span>
+        </button>`;
+      } else if (!resa) {
         const tarif = getTarif(tid, slot, tarifs);
         html += `<button class="pg-cell pg-libre" data-t="${tid}" data-s="${slot}" data-tarif="${tarif}" aria-label="Réserver ${slot} ${_cfg.terrains?.[tid]?.nom}"></button>`;
       } else {
@@ -144,13 +157,16 @@ function _renderGrid() {
   container.innerHTML = html;
 
   container.onclick = e => {
-    const cell = e.target.closest('[data-t],[data-resa]');
+    const cell = e.target.closest('[data-t],[data-resa],[data-evt]');
     if (!cell) return;
     if (cell.dataset.t) {
       _openResaForm(cell.dataset.t, cell.dataset.s, Number(cell.dataset.tarif));
     } else if (cell.dataset.resa) {
       const resa = _resas.find(r => r.id === cell.dataset.resa);
       if (resa) _openResaDetail(resa);
+    } else if (cell.dataset.evt) {
+      openSheet('evenements');
+      openEvtDetail(cell.dataset.evt);
     }
   };
 }
