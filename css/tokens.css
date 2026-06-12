@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  /* Arrière-plan : charbon vert profond */
+  --bg:        #0E1311;
+  --surface:   #161D18;
+  --surface-2: #1E2721;
+  --line:      #26312A;
+
+  /* Texte */
+  --texte:     #E8EFE9;
+  --texte-2:   #93A398;
+
+  /* Identité GROUND */
+  --gazon:     #2F8F46;
+  --gazon-dim: #1E5C2E;
+  --lime:      #B6F09C;
+
+  /* Statuts cellules planning */
+  --libre:     #1C2620;
+  --a-payer:   #E8A13C;
+  --acompte:   #E3C84B;
+  --paye:      #46B36A;
+  --termine:   #58685D;
+  --danger:    #E05A4E;
+
+  /* Typo */
+  --font-title: 'Space Grotesk', system-ui, sans-serif;
+  --font-body:  'Inter', system-ui, sans-serif;
+
+  /* Spacing */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* Radii */
+  --r-sm:  4px;
+  --r-md:  8px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+
+  /* Layout */
+  --nav-h:    60px;
+  --header-h: 52px;
+  --touch:    44px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.5);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.6);
+}

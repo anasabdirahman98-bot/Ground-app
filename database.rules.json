@@ -1,0 +1,77 @@
+{
+  "rules": {
+    ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
+    ".write": false,
+
+    "config": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'gerant'"
+    },
+
+    "users": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
+      "$uid": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'gerant'"
+      }
+    },
+
+    "clients": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
+      "$clientId": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true"
+      }
+    },
+
+    "reservations": {
+      "$date": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
+        "$resaId": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true && newData.exists()",
+          ".validate": "newData.hasChildren(['terrainId','creneau','clientId','montant','statut','statutPaiement','employeId','employeNom','createdAt'])",
+          "employeId": {
+            ".validate": "(!data.exists() && newData.val() === auth.uid) || (data.exists() && newData.val() === data.val())"
+          },
+          "createdAt": {
+            ".validate": "!data.exists() || newData.val() === data.val()"
+          }
+        }
+      }
+    },
+
+    "slots": {
+      "$date": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
+        "$slot": {
+          ".write": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true && (!data.exists() || !newData.exists())"
+        }
+      }
+    },
+
+    "paiements": {
+      "$date": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
+        "$paiementId": {
+          ".write": "auth != null && !data.exists() && newData.child('employeId').val() === auth.uid",
+          ".validate": "newData.hasChildren(['resaId','montant','mode','type','employeId','employeNom','timestamp'])"
+        }
+      }
+    },
+
+    "clotures": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
+      "$date": {
+        ".write": "auth != null && !data.exists() && newData.child('employeId').val() === auth.uid",
+        ".validate": "newData.hasChildren(['theoriqueEspeces','compteEspeces','ecart','employeId','employeNom','timestamp'])"
+      }
+    },
+
+    "journal": {
+      "$date": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'gerant'",
+        "$logId": {
+          ".write": "auth != null && !data.exists() && newData.child('userId').val() === auth.uid"
+        }
+      }
+    }
+  }
+}

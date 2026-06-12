@@ -1,0 +1,20 @@
+{
+  "name": "GROUND — Gestion de complexe sportif",
+  "short_name": "GROUND",
+  "description": "Application de gestion de complexes sportifs — terrains de foot à 5/7",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0E1311",
+  "theme_color": "#0E1311",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "sports"],
+  "lang": "fr"
+}
