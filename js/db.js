@@ -207,3 +207,70 @@ export function onJournalForDate(date, cb) {
       .sort((a, b) => b.timestamp - a.timestamp));
   });
 }
+
+// ─── RÉCURRENCES ─────────────────────────────────────────────────────────────
+
+export function onRecurrences(cb) {
+  return onValue(r('recurrences'), snap => {
+    const raw = snap.val() || {};
+    cb(Object.entries(raw).map(([id, v]) => ({ id, ...v })));
+  });
+}
+
+export async function createRecurrence(data) {
+  const newRef = push(r('recurrences'));
+  await set(newRef, { ...data, createdAt: Date.now() });
+  return newRef.key;
+}
+
+export async function updateRecurrence(id, updates) {
+  await update(r(`recurrences/${id}`), updates);
+}
+
+export async function addRecurrenceException(recurrenceId, date) {
+  await set(r(`recurrences/${recurrenceId}/exceptions/${date}`), true);
+}
+
+// ─── STATISTIQUES PÉRIODE ────────────────────────────────────────────────────
+
+function _nextDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + 1);
+  return dt.toLocaleDateString('en-CA');
+}
+
+export async function getPaiementsForPeriod(dateDebut, dateFin) {
+  const results = [];
+  let cur = dateDebut;
+  while (cur <= dateFin) {
+    const snap = await get(r(`paiements/${cur}`));
+    const raw = snap.val() || {};
+    Object.entries(raw).forEach(([id, v]) => results.push({ id, date: cur, ...v }));
+    cur = _nextDate(cur);
+  }
+  return results;
+}
+
+export async function getReservationsForPeriod(dateDebut, dateFin) {
+  const results = [];
+  let cur = dateDebut;
+  while (cur <= dateFin) {
+    const snap = await get(r(`reservations/${cur}`));
+    const raw = snap.val() || {};
+    Object.entries(raw).forEach(([id, v]) => results.push({ id, date: cur, ...v }));
+    cur = _nextDate(cur);
+  }
+  return results;
+}
+
+export async function getCloturesForPeriod(dateDebut, dateFin) {
+  const results = [];
+  let cur = dateDebut;
+  while (cur <= dateFin) {
+    const snap = await get(r(`clotures/${cur}`));
+    if (snap.val()) results.push({ date: cur, ...snap.val() });
+    cur = _nextDate(cur);
+  }
+  return results;
+}

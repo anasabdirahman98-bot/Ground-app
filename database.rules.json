@@ -65,6 +65,13 @@
       }
     },
 
+    "recurrences": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
+      "$recId": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true"
+      }
+    },
+
     "journal": {
       "$date": {
         ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'gerant'",
