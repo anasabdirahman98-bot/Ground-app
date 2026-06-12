@@ -49,7 +49,8 @@ export function getRecurrencesForDate(date) {
 }
 
 // Auto-create recurring reservations for a date (called by planning.js)
-export async function materializeForDate(date, resas, currentUser) {
+// isBlocked(terrainId, creneau) — skip slots locked by an event
+export async function materializeForDate(date, resas, currentUser, isBlocked) {
   const applicable = getRecurrencesForDate(date);
   for (const rec of applicable) {
     const exists = resas.some(r =>
@@ -57,6 +58,7 @@ export async function materializeForDate(date, resas, currentUser) {
       r.recurrenceId === rec.id && r.statut !== 'annulee'
     );
     if (exists) continue;
+    if (isBlocked?.(rec.terrainId, rec.creneau)) continue;
     try {
       await createReservation(date, {
         terrainId: rec.terrainId,

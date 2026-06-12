@@ -231,6 +231,35 @@ export async function addRecurrenceException(recurrenceId, date) {
   await set(r(`recurrences/${recurrenceId}/exceptions/${date}`), true);
 }
 
+// ─── ÉVÉNEMENTS / TOURNOIS ───────────────────────────────────────────────────
+
+export function onEvenements(cb) {
+  return onValue(r('evenements'), snap => {
+    const raw = snap.val() || {};
+    cb(Object.entries(raw).map(([id, v]) => ({ id, ...v })));
+  });
+}
+
+export async function createEvenement(data) {
+  const newRef = push(r('evenements'));
+  await set(newRef, { ...data, createdAt: Date.now() });
+  return newRef.key;
+}
+
+export async function updateEvenement(id, updates) {
+  await update(r(`evenements/${id}`), updates);
+}
+
+export async function addEquipe(evtId, data) {
+  const newRef = push(r(`evenements/${evtId}/equipes`));
+  await set(newRef, { ...data, createdAt: Date.now() });
+  return newRef.key;
+}
+
+export async function updateEquipe(evtId, equipeId, updates) {
+  await update(r(`evenements/${evtId}/equipes/${equipeId}`), updates);
+}
+
 // ─── STATISTIQUES PÉRIODE ────────────────────────────────────────────────────
 
 function _nextDate(dateStr) {
