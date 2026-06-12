@@ -1,5 +1,6 @@
 import { onClients, createClient, updateClient, getReservationsForDate } from './db.js';
 import { formatFDJ, formatDateShort, showToast, todayDate, addDays } from './utils.js';
+import { gotoDate } from './planning.js';
 
 const $ = id => document.getElementById(id);
 
@@ -113,16 +114,25 @@ async function _renderUnpaid() {
 
   panel.innerHTML = '<div class="client-list">' + unpaid.map(r => {
     const solde = r.montant - (r.totalPaye || 0);
-    return `<div class="unpaid-card">
+    return `<button class="unpaid-card" data-date="${r.date}">
       <div class="uc-top">
         <span class="uc-client">${esc(r.clientNom)}</span>
         <span class="uc-solde">${formatFDJ(solde)}</span>
       </div>
       <div class="uc-meta">
-        ${_cfg.terrains?.[r.terrainId]?.nom || r.terrainId} · ${r.creneau} · ${formatDateShort(r.date)}
+        ${_cfg.terrains?.[r.terrainId]?.nom || r.terrainId} · ${r.creneau} · ${formatDateShort(r.date)} ›
       </div>
-    </div>`;
+    </button>`;
   }).join('') + '</div>';
+
+  // Ouvrir le planning à la date de l'impayé pour encaisser directement
+  panel.querySelectorAll('.unpaid-card').forEach(card => {
+    card.onclick = () => {
+      const date = card.dataset.date;
+      document.querySelector('#bottom-nav [data-view="planning"]')?.click();
+      gotoDate(date);
+    };
+  });
 }
 
 // ─── CLIENT DETAIL ───────────────────────────────────────────────────────────

@@ -173,7 +173,9 @@ function _renderJournal() {
     reservation_creee: 'Réservation créée', reservation_recurrente: 'Récurrence',
     encaissement: 'Encaissement', checkin: 'Check-in',
     annulation: 'Annulation', cloture_caisse: 'Clôture caisse',
-    config_modifie: 'Config modifiée', employe_cree: 'Employé créé'
+    config_modifie: 'Config modifiée', employe_cree: 'Employé créé',
+    employe_desactive: 'Employé désactivé',
+    evenement_cree: 'Événement créé', evenement_modifie: 'Événement modifié'
   };
   el.innerHTML = '<div class="journal-feed">' + _journal.slice(0, 30).map(j =>
     `<div class="jf-item">
@@ -308,11 +310,14 @@ function _exportCSV(type, dateDebut, dateFin, data) {
   let lines;
   if (type === 'paiements') {
     lines = [
-      ['Date', 'Horodatage', 'Employé', 'Mode', 'Type', 'Montant FDJ', 'ReservationId'].join(';'),
+      ['Date', 'Horodatage', 'Employé', 'Mode', 'Type', 'Montant FDJ', 'Motif', 'ReservationId'].join(';'),
       ...data.map(p => [
         p.date,
         new Date(p.timestamp).toLocaleString('fr-FR', { timeZone: 'Africa/Djibouti' }),
-        p.employeNom, modePaiementLabel(p.mode), p.type, p.montant, p.resaId
+        p.employeNom, modePaiementLabel(p.mode), p.type,
+        // Montant signé : les ajustements (remboursements) sortent en négatif
+        p.type === 'ajustement' ? -Math.abs(p.montant) : p.montant,
+        p.motif || '', p.resaId
       ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';'))
     ];
   } else {

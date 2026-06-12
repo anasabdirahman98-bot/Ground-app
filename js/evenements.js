@@ -1,9 +1,9 @@
 import {
   onEvenements, createEvenement, updateEvenement, addEquipe, updateEquipe,
-  createPaiement, addJournalEntry
+  createPaiement, addJournalEntry, getCloture
 } from './db.js';
 import {
-  todayDate, formatFDJ, formatDateShort, generateSlots, showToast
+  todayDate, formatFDJ, formatDateShort, generateSlots, modePaiementLabel, showToast
 } from './utils.js';
 
 const $ = id => document.getElementById(id);
@@ -15,6 +15,7 @@ let _onChange = null;
 let _unsubs = [];
 let _handlersBound = false;
 let _currentEvt = null;
+let _editingId = null;
 
 export function init(config, user, onChange) {
   _cfg = config;
@@ -156,12 +157,16 @@ function _renderDetail() {
       <button type="submit" class="btn btn-secondary btn-full" style="margin-top:var(--sp-3)">+ Inscrire l'équipe</button>
     </form>
 
-    ${evt.statut === 'actif' ? `<button class="btn btn-ghost btn-full" id="evt-close-btn" style="margin-top:var(--sp-4)">Clore l'événement</button>` : ''}
+    ${evt.statut === 'actif' ? `<button class="btn btn-secondary btn-full" id="evt-edit-btn" style="margin-top:var(--sp-4)">Modifier l'événement</button>` : ''}
+    ${evt.statut === 'actif' ? `<button class="btn btn-ghost btn-full" id="evt-close-btn" style="margin-top:var(--sp-2)">Clore l'événement</button>` : ''}
   `;
 
   el.querySelectorAll('.eq-pay').forEach(btn => {
-    btn.onclick = () => _payEquipe(btn.dataset.eq, Number(btn.dataset.solde), btn);
+    btn.onclick = () => _showPayConfirm(btn);
   });
+
+  const editBtn = $('evt-edit-btn');
+  if (editBtn) editBtn.onclick = () => _showForm(evt);
 
   $('equipe-form').onsubmit = async e => {
     e.preventDefault();
@@ -194,16 +199,37 @@ function _renderDetail() {
   };
 }
 
-async function _payEquipe(equipeId, solde, btn) {
+// Remplace le bouton « Encaisser » par un mini-formulaire mode + confirmation
+function _showPayConfirm(payBtn) {
+  const modes = _cfg.modesPaiement || ['especes', 'dmoney', 'waafi', 'autre'];
+  const equipeId = payBtn.dataset.eq;
+  const solde = Number(payBtn.dataset.solde);
+  const wrap = document.createElement('span');
+  wrap.className = 'eq-pay-confirm';
+  wrap.innerHTML = `
+    <select class="eq-mode-sel">${modes.map(m => `<option value="${m}">${modePaiementLabel(m)}</option>`).join('')}</select>
+    <button type="button" class="btn btn-sm btn-primary">✓</button>`;
+  payBtn.replaceWith(wrap);
+  const confirmBtn = wrap.querySelector('button');
+  confirmBtn.onclick = () =>
+    _payEquipe(equipeId, solde, wrap.querySelector('.eq-mode-sel').value, confirmBtn);
+}
+
+async function _payEquipe(equipeId, solde, mode, btn) {
   const evt = _currentEvt;
   const equipe = evt.equipes?.[equipeId];
   if (!equipe) return;
   btn.disabled = true;
   try {
+    const cl = await getCloture(todayDate()).catch(() => null);
+    if (cl && !confirm('⚠ La caisse du jour est déjà clôturée.\nEncaisser quand même ? L\'écart de clôture ne correspondra plus.')) {
+      btn.disabled = false;
+      return;
+    }
     await createPaiement(todayDate(), {
       resaId: `evt:${evt.id}:${equipeId}`,
       montant: solde,
-      mode: 'especes',
+      mode,
       type: 'paiement',
       motif: `Inscription ${evt.nom} — ${equipe.nom}`,
       employeId: _user.uid,
@@ -214,9 +240,9 @@ async function _payEquipe(equipeId, solde, btn) {
       action: 'encaissement',
       userId: _user.uid,
       userNom: _user.nom,
-      details: `Inscription ${evt.nom} — ${equipe.nom} ${formatFDJ(solde)}`
+      details: `Inscription ${evt.nom} — ${equipe.nom} ${formatFDJ(solde)} (${modePaiementLabel(mode)})`
     });
-    showToast(`${formatFDJ(solde)} encaissé.`, 'success');
+    showToast(`${formatFDJ(solde)} encaissé (${modePaiementLabel(mode)}).`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
     btn.disabled = false;
@@ -226,22 +252,34 @@ async function _payEquipe(equipeId, solde, btn) {
 // ─── FORM ────────────────────────────────────────────────────────────────────
 
 function _bindHandlers() {
-  $('btn-new-evt')?.addEventListener('click', _showForm);
+  $('btn-new-evt')?.addEventListener('click', () => _showForm(null));
   $('evt-form-back')?.addEventListener('click', () => _showSection('list'));
   $('evt-detail-back')?.addEventListener('click', () => _showSection('list'));
   $('evt-form')?.addEventListener('submit', async e => { e.preventDefault(); await _submitForm(); });
 }
 
-function _showForm() {
+// evt = null → création ; evt fourni → édition préremplie
+function _showForm(evt) {
+  _editingId = evt?.id || null;
   _showSection('form');
-  $('evt-f-nom').value = '';
-  $('evt-f-debut').value = todayDate();
-  $('evt-f-fin').value = todayDate();
-  $('evt-f-frais').value = '';
-  $('evt-f-notes').value = '';
+  $('evt-f-nom').value = evt?.nom || '';
+  $('evt-f-debut').value = evt?.dateDebut || todayDate();
+  $('evt-f-fin').value = evt?.dateFin || todayDate();
+  $('evt-f-frais').value = evt?.fraisInscription || '';
+  $('evt-f-notes').value = evt?.notes || '';
   $('evt-form-err').hidden = true;
   _fillTerrainChecks();
   _fillCreneauChecks();
+  if (evt) {
+    document.querySelectorAll('.evt-terrain-check').forEach(cb => {
+      cb.checked = !!evt.terrains?.[cb.value];
+    });
+    document.querySelectorAll('.evt-creneau-check').forEach(cb => {
+      cb.checked = !!evt.creneaux?.[cb.value];
+    });
+  }
+  $('evt-form').querySelector('[type="submit"]').textContent =
+    evt ? 'Enregistrer les modifications' : 'Créer l\'événement';
 }
 
 function _fillTerrainChecks() {
@@ -290,27 +328,49 @@ async function _submitForm() {
   const btn = $('evt-form').querySelector('[type="submit"]');
   btn.disabled = true;
   try {
-    await createEvenement({
-      nom,
-      dateDebut,
-      dateFin,
-      terrains,
-      creneaux: Object.keys(creneaux).length ? creneaux : null,
-      fraisInscription: frais,
-      notes,
-      statut: 'actif',
-      equipes: {},
-      employeId: _user.uid,
-      employeNom: _user.nom
-    });
-    await addJournalEntry(todayDate(), {
-      action: 'evenement_cree',
-      userId: _user.uid,
-      userNom: _user.nom,
-      details: `${nom} (${dateDebut} → ${dateFin})`
-    });
-    _showSection('list');
-    showToast('Événement créé.', 'success');
+    if (_editingId) {
+      await updateEvenement(_editingId, {
+        nom,
+        dateDebut,
+        dateFin,
+        terrains,
+        creneaux: Object.keys(creneaux).length ? creneaux : null,
+        fraisInscription: frais,
+        notes
+      });
+      await addJournalEntry(todayDate(), {
+        action: 'evenement_modifie',
+        userId: _user.uid,
+        userNom: _user.nom,
+        details: `${nom} (${dateDebut} → ${dateFin})`
+      });
+      const id = _editingId;
+      _editingId = null;
+      openEvtDetail(id);
+      showToast('Événement modifié.', 'success');
+    } else {
+      await createEvenement({
+        nom,
+        dateDebut,
+        dateFin,
+        terrains,
+        creneaux: Object.keys(creneaux).length ? creneaux : null,
+        fraisInscription: frais,
+        notes,
+        statut: 'actif',
+        equipes: {},
+        employeId: _user.uid,
+        employeNom: _user.nom
+      });
+      await addJournalEntry(todayDate(), {
+        action: 'evenement_cree',
+        userId: _user.uid,
+        userNom: _user.nom,
+        details: `${nom} (${dateDebut} → ${dateFin})`
+      });
+      _showSection('list');
+      showToast('Événement créé.', 'success');
+    }
   } catch (err) {
     errEl.textContent = err.message;
     errEl.hidden = false;
