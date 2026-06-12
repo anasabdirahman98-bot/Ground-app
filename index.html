@@ -454,7 +454,9 @@
 
       const isGerant = userData.role === 'gerant';
       document.querySelectorAll('.gerant-only').forEach(el => {
-        el.style.display = isGerant ? '' : 'none';
+        // 'flex' explicite : la règle CSS .gerant-only { display:none } ne peut
+        // pas être annulée par un style inline vide
+        el.style.display = isGerant ? 'flex' : 'none';
       });
 
       _startConfigListener(user, userData);
