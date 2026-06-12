@@ -456,6 +456,7 @@ function _openPaySheet(resa, solde) {
     } catch (err) {
       errEl.textContent = err.message;
       errEl.hidden = false;
+    } finally {
       btn.disabled = false;
     }
   };
