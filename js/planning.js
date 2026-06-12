@@ -467,6 +467,21 @@ function _openPaySheet(resa, solde) {
 function _openCancelModal(resa) {
   $('cancel-motif').value = '';
   $('cancel-err').hidden = true;
+
+  // Show refund option if reservation was paid
+  const refundRow = $('cancel-refund-row');
+  if (refundRow) {
+    if ((resa.totalPaye || 0) > 0) {
+      refundRow.hidden = false;
+      $('cancel-refund-label').textContent =
+        `Rembourser ${formatFDJ(resa.totalPaye)} (annulation)`;
+      $('cancel-refund-check').checked = true;
+      _fillModeSelect('cancel-refund-mode');
+    } else {
+      refundRow.hidden = true;
+    }
+  }
+
   $('modal-cancel').hidden = false;
   $('modal-overlay').classList.remove('hidden');
 
@@ -490,6 +505,19 @@ function _openCancelModal(resa) {
       if (resa.recurrenceId) {
         await addRecurrenceException(resa.recurrenceId, _date);
       }
+      // Créer un ajustement négatif si remboursement coché
+      if ($('cancel-refund-check')?.checked && (resa.totalPaye || 0) > 0) {
+        const mode = $('cancel-refund-mode')?.value || 'especes';
+        await createPaiement(_date, {
+          resaId: resa.id,
+          montant: resa.totalPaye,
+          mode,
+          type: 'ajustement',
+          motif: `Remboursement — ${motif}`,
+          employeId: _user.uid,
+          employeNom: _user.nom
+        });
+      }
       await addJournalEntry(_date, {
         action: 'annulation', userId: _user.uid, userNom: _user.nom,
         details: `${resa.clientNom} ${resa.creneau} — ${motif}`
@@ -499,6 +527,7 @@ function _openCancelModal(resa) {
     } catch (err) {
       $('cancel-err').textContent = err.message;
       $('cancel-err').hidden = false;
+    } finally {
       $('cancel-confirm').disabled = false;
     }
   };

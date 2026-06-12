@@ -310,6 +310,13 @@
       <label for="cancel-motif">Motif (obligatoire)</label>
       <textarea id="cancel-motif" required rows="3" placeholder="Raison de l'annulation…"></textarea>
     </div>
+    <div id="cancel-refund-row" class="field" hidden>
+      <label class="checkbox-label">
+        <input type="checkbox" id="cancel-refund-check" checked>
+        <span id="cancel-refund-label">Rembourser le paiement</span>
+      </label>
+      <select id="cancel-refund-mode" style="margin-top:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px;width:100%;color:var(--texte)"></select>
+    </div>
     <div id="cancel-err" class="error-msg" hidden role="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="cancel-close">Retour</button>
