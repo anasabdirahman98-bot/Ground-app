@@ -258,6 +258,28 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
   color: var(--danger);
   font-size: .9rem;
 }
+.info-msg {
+  background: rgba(182,240,156,.10);
+  border: 1px solid rgba(182,240,156,.3);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--lime);
+  font-size: .9rem;
+}
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--texte-2);
+  font-size: .9rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: var(--sp-2);
+  width: 100%;
+  text-align: center;
+  margin-top: var(--sp-2);
+}
+.btn-link:hover { color: var(--lime); }
+.btn-link:disabled { opacity: .6; cursor: default; }
 .empty-msg { color: var(--texte-2); text-align: center; padding: var(--sp-8) var(--sp-4); font-size: .95rem; }
 
 /* ─── NETWORK BANNER ────────────────────────────────────────────────────────── */
