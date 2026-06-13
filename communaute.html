@@ -54,6 +54,15 @@
     .nav-btn.active { color: var(--accent); }
     .nav-icon { font-size: 1.3rem; line-height: 1; }
 
+    /* ── NOTIF BANNER ─────────────────────────────────────────────── */
+    #notif-banner { background: rgba(134,239,172,.1); border-bottom: 1px solid rgba(134,239,172,.22); padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+    .notif-item { display: flex; align-items: flex-start; gap: var(--sp-3); }
+    .notif-icon { font-size: 1.2rem; line-height: 1.4; flex-shrink: 0; }
+    .notif-body { flex: 1; }
+    .notif-title { font-size: .9rem; font-weight: 700; color: var(--accent); }
+    .notif-sub { font-size: .8rem; color: var(--text2); margin-top: 2px; }
+    .notif-dismiss { background: none; border: 0; color: var(--text2); font-size: 1.1rem; padding: 0 2px; cursor: pointer; flex-shrink: 0; }
+
     /* ── FILTER BAR ───────────────────────────────────────────────── */
     .filter-bar { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3); flex-wrap: wrap; }
     .filter-bar input[type="search"] { flex: 1 1 100%; padding: 9px 12px; font-size: .9rem; }
@@ -145,6 +154,7 @@
     <span id="app-pseudo" class="app-pseudo"></span>
     <button class="app-logout" id="btn-logout">Déco.</button>
   </header>
+  <div id="notif-banner" hidden></div>
   <div class="app-body" id="app-body"></div>
   <nav class="app-nav">
     <button class="nav-btn active" data-tab="matchs"><span class="nav-icon">⚽</span><span>Matchs</span></button>
@@ -218,7 +228,7 @@ $('btn-logout').onclick = () => logoutJoueur();
 // ── LIFECYCLE ──────────────────────────────────────────────────────────────────
 function _start() {
   _unsubs.push(onJoueurPublic(_user.uid, p => { _profile=p; $('app-pseudo').textContent=p?.pseudo||p?.nom||''; _renderTab(); }));
-  _unsubs.push(onMatchsOuverts(list => { _matchs=list; _renderTab(); }));
+  _unsubs.push(onMatchsOuverts(list => { _matchs=list; _checkConfirmations(); _renderTab(); }));
   _unsubs.push(onEquipes(list => { _equipes=list; _renderTab(); }));
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.onclick = () => {
@@ -228,7 +238,48 @@ function _start() {
     };
   });
 }
-function _stop() { _unsubs.forEach(fn=>fn()); _unsubs=[]; }
+function _stop() { _unsubs.forEach(fn=>fn()); _unsubs=[]; $('notif-banner').hidden = true; }
+
+function _checkConfirmations() {
+  if (!_user) return;
+  const key = `ground_ack_${_user.uid}`;
+  const acked = new Set(JSON.parse(localStorage.getItem(key) || '[]'));
+  const toNotify = _matchs.filter(m =>
+    m.statut === 'confirme' &&
+    !acked.has(m.id) &&
+    (!!(m.participants||{})[_user.uid] || m.createdBy === _user.uid)
+  );
+  if (!toNotify.length) return;
+  toNotify.forEach(m => acked.add(m.id));
+  localStorage.setItem(key, JSON.stringify([...acked]));
+  _showConfirmBanner(toNotify);
+}
+
+function _showConfirmBanner(matchs) {
+  const banner = $('notif-banner');
+  matchs.forEach(m => {
+    const item = document.createElement('div');
+    item.className = 'notif-item';
+    const sub = [
+      m.date ? dateLabel(m.date) : '',
+      m.creneau || m.heure || '',
+      m.terrainNom || ''
+    ].filter(Boolean).join(' · ');
+    item.innerHTML = `
+      <span class="notif-icon">✅</span>
+      <div class="notif-body">
+        <div class="notif-title">Match confirmé : ${esc(m.titre || sportLabel(m.sport))}</div>
+        ${sub ? `<div class="notif-sub">${esc(sub)}</div>` : ''}
+      </div>
+      <button class="notif-dismiss" aria-label="Fermer">✕</button>`;
+    item.querySelector('.notif-dismiss').onclick = () => {
+      item.remove();
+      if (!banner.children.length) banner.hidden = true;
+    };
+    banner.appendChild(item);
+  });
+  banner.hidden = false;
+}
 function _renderTab() {
   const body = $('app-body');
   if (_activeTab==='matchs')     _renderMatchs(body);
