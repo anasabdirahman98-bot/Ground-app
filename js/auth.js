@@ -4,7 +4,8 @@ import {
   signInWithEmailAndPassword,
   signOut as fbSignOut,
   onAuthStateChanged,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { firebaseConfig } from './firebase-config.js';
 import { auth, getUser, setUser, updateUser } from './db.js';
@@ -48,6 +49,10 @@ export async function login(email, password) {
 
 export async function logout() {
   await fbSignOut(auth);
+}
+
+export async function resetPassword(email) {
+  await sendPasswordResetEmail(auth, email);
 }
 
 export async function createEmployee({ nom, email, password, telephone }) {
