@@ -460,6 +460,7 @@ function _renderComList() {
         ${sportLabel(m.sport)} · ${niveauLabel(m.niveau)}
         ${m.date ? ' · ' + dateLabel(m.date) : ''}
         ${m.heure ? ' · ' + esc(m.heure) : ''}
+        ${m.terrainNom ? ' · 📍 ' + esc(m.terrainNom) : ''}
         · ${parts.length}/${m.placesTotal} joueurs
         ${m.createdByNom ? ' · créé par ' + esc(m.createdByNom) : ''}
       </div>
@@ -559,6 +560,7 @@ function _openConfirmMatchForm(matchId) {
     <p style="font-size:.85rem;color:var(--texte-2);margin-bottom:var(--sp-4)">
       ${esc(m.titre || '')} · ${parts.length} joueur${parts.length > 1 ? 's' : ''}. La confirmation crée une réservation au planning et partage les contacts entre participants.
     </p>
+    ${m.terrainNom ? `<p style="font-size:.85rem;color:var(--accent,#86efac);margin-bottom:var(--sp-4)">📍 Terrain souhaité par le joueur : ${esc(m.terrainNom)}</p>` : ''}
     <form id="form-confirm">
       <div class="field"><label>Terrain</label>
         <select id="cm-terrain">${terrains.map(([id, t]) => `<option value="${id}" ${id === defaultTid ? 'selected' : ''}>${esc(t.nom)}</option>`).join('')}</select>
