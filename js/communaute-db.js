@@ -45,6 +45,9 @@ export async function joinEquipe(equipeId, uid, data) {
 export async function leaveEquipe(equipeId, uid) {
   await remove(r(`equipes/${equipeId}/membres/${uid}`));
 }
+export async function deleteEquipe(id) {
+  await remove(r(`equipes/${id}`));
+}
 
 // ─── MATCHS OUVERTS ──────────────────────────────────────────────────────────
 export function onMatchsOuverts(cb) {

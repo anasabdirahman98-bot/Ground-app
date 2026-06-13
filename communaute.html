@@ -157,7 +157,7 @@
 import {
   onAuthChange, loginJoueur, registerJoueur, logoutJoueur,
   setJoueurPublic, setJoueurPrive, getJoueurPrive,
-  onJoueurPublic, onEquipes, createEquipe, joinEquipe, leaveEquipe,
+  onJoueurPublic, onEquipes, createEquipe, joinEquipe, leaveEquipe, deleteEquipe,
   onMatchsOuverts, createMatchOuvert, joinMatch, leaveMatch, updateMatchStatut
 } from './js/communaute-db.js';
 
@@ -249,6 +249,7 @@ function _renderMatchs(body) {
   $('btn-new-match').onclick = _openNewMatchForm;
   body.querySelectorAll('.btn-join').forEach(b => b.onclick = () => _joinMatch(b.dataset.id));
   body.querySelectorAll('.btn-leave').forEach(b => b.onclick = () => _leaveMatch(b.dataset.id));
+  body.querySelectorAll('.btn-cancel-match').forEach(b => b.onclick = () => _cancelMatch(b.dataset.id));
   body.querySelectorAll('.btn-detail').forEach(b => b.onclick = () => _openMatchDetail(b.dataset.id));
 }
 
@@ -256,13 +257,15 @@ function _matchCard(m) {
   const nbPart = Object.keys(m.participants||{}).length;
   const isJoined = !!(m.participants||{})[_user?.uid];
   const isFull = nbPart >= m.placesTotal;
+  const isCreator = m.createdBy === _user?.uid;
   return `<div class="card">
     <div class="card-header"><span class="card-title">${esc(m.titre||sportLabel(m.sport))}</span><span class="badge badge-${m.statut}">${statutLabel(m.statut)}</span></div>
     <div class="card-meta">${sportLabel(m.sport)} · ${niveauLabel(m.niveau)}${m.date?` · ${dateLabel(m.date)}`:''}${m.heure?` · ${esc(m.heure)}`:''}</div>
     <div class="card-meta" style="margin-top:4px">${nbPart}/${m.placesTotal} joueur${m.placesTotal>1?'s':''}${m.terrainNom?` · ${esc(m.terrainNom)}`:''}</div>
     <div class="card-actions">
       ${!isJoined&&!isFull?`<button class="btn btn-primary btn-sm btn-join" data-id="${m.id}">Rejoindre</button>`:''}
-      ${isJoined?`<button class="btn btn-danger btn-sm btn-leave" data-id="${m.id}">Se désinscrire</button>`:''}
+      ${isJoined&&!isCreator?`<button class="btn btn-danger btn-sm btn-leave" data-id="${m.id}">Se désinscrire</button>`:''}
+      ${isCreator?`<button class="btn btn-danger btn-sm btn-cancel-match" data-id="${m.id}">Annuler le match</button>`:''}
       <button class="btn btn-secondary btn-sm btn-detail" data-id="${m.id}">Participants</button>
     </div>
   </div>`;
@@ -283,6 +286,10 @@ async function _leaveMatch(matchId) {
     const m = _matchs.find(x=>x.id===matchId);
     if (m?.statut==='complet') await updateMatchStatut(matchId, { statut:'ouvert' });
   } catch(e) { alert(e.message); }
+}
+async function _cancelMatch(matchId) {
+  if (!confirm('Annuler ce match ? Cette action est irréversible.')) return;
+  try { await updateMatchStatut(matchId, { statut:'annule' }); } catch(e) { alert(e.message); }
 }
 
 function _openMatchDetail(matchId) {
@@ -328,9 +335,11 @@ function _openNewMatchForm() {
     $('nm-submit').onclick = async () => {
       const places = parseInt($('nm-places').value, 10);
       if (!places||places<2) { $('nm-err').textContent='Nombre de places invalide.'; return; }
+      const min = parseInt($('nm-min').value, 10) || places;
+      if (min > places) { $('nm-err').textContent='Le minimum ne peut pas dépasser le nombre de places total.'; return; }
       $('nm-submit').disabled = true;
       try {
-        const newId = await createMatchOuvert({ titre:$('nm-titre').value.trim(), sport:$('nm-sport').value, niveau:$('nm-niveau').value, date:$('nm-date').value, heure:$('nm-heure').value||'', placesTotal:places, placesMin:parseInt($('nm-min').value,10)||places, terrainNom:'', createdBy:_user.uid, createdByNom:_profile?.nom||'' });
+        const newId = await createMatchOuvert({ titre:$('nm-titre').value.trim(), sport:$('nm-sport').value, niveau:$('nm-niveau').value, date:$('nm-date').value, heure:$('nm-heure').value||'', placesTotal:places, placesMin:min, terrainNom:'', createdBy:_user.uid, createdByNom:_profile?.nom||'' });
         await joinMatch(newId, _user.uid, { nom: _profile?.nom||'' });
         _closeOverlay();
       } catch(e) { $('nm-err').textContent=e.message; $('nm-submit').disabled=false; }
@@ -352,13 +361,15 @@ function _renderMesMatchs(body) {
             ${isConfirme?`<p style="margin-top:8px;font-size:.85rem;color:var(--accent)">✓ Confirmé — voir les contacts dans les détails</p>`:''}
             <div class="card-actions">
               <button class="btn btn-secondary btn-sm btn-detail" data-id="${m.id}">Voir participants</button>
-              ${m.statut!=='confirme'?`<button class="btn btn-danger btn-sm btn-leave" data-id="${m.id}">Se désinscrire</button>`:''}
+              ${m.statut!=='confirme'&&m.createdBy!==_user?.uid?`<button class="btn btn-danger btn-sm btn-leave" data-id="${m.id}">Se désinscrire</button>`:''}
+              ${m.createdBy===_user?.uid&&m.statut!=='confirme'?`<button class="btn btn-danger btn-sm btn-cancel-match" data-id="${m.id}">Annuler le match</button>`:''}
             </div>
           </div>`;
         }).join('')}</div>`
     );
   body.querySelectorAll('.btn-detail').forEach(b => b.onclick = () => _openMatchDetail(b.dataset.id));
   body.querySelectorAll('.btn-leave').forEach(b => b.onclick = () => _leaveMatch(b.dataset.id));
+  body.querySelectorAll('.btn-cancel-match').forEach(b => b.onclick = () => _cancelMatch(b.dataset.id));
 }
 
 // ── ÉQUIPES ────────────────────────────────────────────────────────────────────
@@ -376,6 +387,7 @@ function _renderEquipes(body) {
             <div class="card-actions">
               ${!isMembre?`<button class="btn btn-primary btn-sm btn-join-eq" data-id="${eq.id}">Rejoindre</button>`:''}
               ${isMembre&&!isCap?`<button class="btn btn-danger btn-sm btn-leave-eq" data-id="${eq.id}">Quitter</button>`:''}
+              <button class="btn btn-secondary btn-sm btn-detail-eq" data-id="${eq.id}">${isCap?'Gérer':'Membres'}</button>
             </div>
           </div>`;
         }).join('')}</div>`
@@ -383,6 +395,7 @@ function _renderEquipes(body) {
   $('btn-new-eq').onclick = _openNewEquipeForm;
   body.querySelectorAll('.btn-join-eq').forEach(b => b.onclick = async () => { try { await joinEquipe(b.dataset.id,_user.uid,{nom:_profile?.nom||'',role:'membre'}); } catch(e){alert(e.message);} });
   body.querySelectorAll('.btn-leave-eq').forEach(b => b.onclick = async () => { try { await leaveEquipe(b.dataset.id,_user.uid); } catch(e){alert(e.message);} });
+  body.querySelectorAll('.btn-detail-eq').forEach(b => b.onclick = () => _openEquipeDetail(b.dataset.id));
 }
 
 function _openNewEquipeForm() {
@@ -406,6 +419,43 @@ function _openNewEquipeForm() {
         _closeOverlay();
       } catch(e) { $('eq-err').textContent=e.message; $('eq-submit').disabled=false; }
     };
+  });
+}
+
+function _openEquipeDetail(equipeId) {
+  const eq = _equipes.find(x => x.id === equipeId); if (!eq) return;
+  const isCap = eq.capitaineId === _user?.uid;
+  const membres = Object.entries(eq.membres || {});
+  _openOverlay(`
+    <h3>${esc(eq.nom)}</h3>
+    <div class="card-meta" style="margin-bottom:var(--sp-3)">${sportLabel(eq.sport)} · ${niveauLabel(eq.niveau)} · ${membres.length} membre${membres.length>1?'s':''}</div>
+    <p style="font-size:.85rem;color:var(--text2);margin-bottom:var(--sp-2)">Membres</p>
+    <div class="part-list">
+      ${membres.map(([uid, m]) => `
+        <div class="part-row">
+          <span class="part-nom">${esc(m.nom||'—')}${uid===eq.capitaineId?' ★':''}</span>
+          ${isCap&&uid!==_user?.uid?`<button class="btn btn-danger btn-sm btn-kick" data-uid="${uid}">Exclure</button>`:''}
+        </div>`).join('')}
+    </div>
+    ${isCap?`<div style="margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid var(--border)">
+      <button class="btn btn-danger btn-full" id="btn-dissoudre">Dissoudre l'équipe</button>
+    </div>`:''}
+    <div class="form-actions" style="margin-top:var(--sp-3)"><button class="btn btn-secondary btn-full" id="det-close">Fermer</button></div>`, () => {
+    $('det-close').onclick = _closeOverlay;
+    if (isCap) {
+      $('btn-dissoudre').onclick = async () => {
+        if (!confirm(`Dissoudre "${eq.nom}" définitivement ?`)) return;
+        try { await deleteEquipe(equipeId); _closeOverlay(); } catch(e) { alert(e.message); }
+      };
+    }
+    $('form-sheet').querySelectorAll('.btn-kick').forEach(b => {
+      b.onclick = async () => {
+        const uid = b.dataset.uid;
+        const nom = eq.membres[uid]?.nom || 'ce joueur';
+        if (!confirm(`Exclure ${nom} de l'équipe ?`)) return;
+        try { await leaveEquipe(equipeId, uid); _closeOverlay(); } catch(e) { alert(e.message); }
+      };
+    });
   });
 }
 
