@@ -985,3 +985,19 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 .cl-ecart-row { font-weight: 600; padding-top: var(--sp-2); border-top: 1px solid var(--line); }
 .cl-comment { font-size: .8rem; color: var(--texte-2); font-style: italic; }
 .cl-meta { font-size: .78rem; color: var(--texte-2); margin-top: var(--sp-1); }
+
+/* ─── FILE D'ATTENTE (Phase 4) ─────────────────────────────────────────────── */
+.wl-section { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+.wl-list { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.wl-empty { font-size: .85rem; color: var(--texte-2); padding: var(--sp-2) 0; }
+.wl-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border-radius: var(--r-md); }
+.wl-pos { flex-shrink: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-family: var(--font-title); font-weight: 700; font-size: .8rem; background: var(--surface-3, #1b211e); border-radius: 50%; }
+.wl-info { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.wl-nom { font-weight: 600; font-size: .9rem; }
+.wl-tel { font-size: .78rem; color: var(--texte-2); }
+.wl-del { flex-shrink: 0; }
+.wl-form { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.wl-form input { flex: 1; min-width: 120px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; color: var(--texte); font: inherit; }
+.wl-form button { flex-shrink: 0; }
+.wl-freed-intro { font-size: .9rem; color: var(--texte-2); margin-bottom: var(--sp-4); }
+.wl-next { padding: var(--sp-4); background: var(--surface-2); border-radius: var(--r-lg); display: flex; flex-direction: column; gap: var(--sp-3); }
