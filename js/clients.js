@@ -114,21 +114,26 @@ async function _renderUnpaid() {
 
   panel.innerHTML = '<div class="client-list">' + unpaid.map(r => {
     const solde = r.montant - (r.totalPaye || 0);
-    return `<button class="unpaid-card" data-date="${r.date}">
-      <div class="uc-top">
-        <span class="uc-client">${esc(r.clientNom)}</span>
-        <span class="uc-solde">${formatFDJ(solde)}</span>
-      </div>
-      <div class="uc-meta">
-        ${_cfg.terrains?.[r.terrainId]?.nom || r.terrainId} · ${r.creneau} · ${formatDateShort(r.date)} ›
-      </div>
-    </button>`;
+    const terrainNom = _cfg.terrains?.[r.terrainId]?.nom || r.terrainId;
+    const waLink = _waRelanceLink(r.clientObj?.telephone, r.clientNom, terrainNom, r.creneau, r.date, solde);
+    return `<div class="unpaid-card">
+      <button class="uc-body" data-date="${r.date}">
+        <div class="uc-top">
+          <span class="uc-client">${esc(r.clientNom)}</span>
+          <span class="uc-solde">${formatFDJ(solde)}</span>
+        </div>
+        <div class="uc-meta">
+          ${terrainNom} · ${r.creneau} · ${formatDateShort(r.date)} ›
+        </div>
+      </button>
+      ${waLink ? `<a class="uc-wa" href="${waLink}" target="_blank" rel="noopener noreferrer">WA</a>` : ''}
+    </div>`;
   }).join('') + '</div>';
 
   // Ouvrir le planning à la date de l'impayé pour encaisser directement
-  panel.querySelectorAll('.unpaid-card').forEach(card => {
-    card.onclick = () => {
-      const date = card.dataset.date;
+  panel.querySelectorAll('.uc-body').forEach(btn => {
+    btn.onclick = () => {
+      const date = btn.dataset.date;
       document.querySelector('#bottom-nav [data-view="planning"]')?.click();
       gotoDate(date);
     };
@@ -185,15 +190,20 @@ async function _showClientDetail(id) {
   } else {
     histHtml += '<div class="client-list">' + history.slice(0, 20).map(r => {
       const solde = (r.montant || 0) - (r.totalPaye || 0);
+      const terrainNom = _cfg.terrains?.[r.terrainId]?.nom || r.terrainId;
+      const waLink = solde > 0 && r.statut === 'confirmee'
+        ? _waRelanceLink(client.telephone, client.nom, terrainNom, r.creneau, r.date, solde)
+        : '';
       return `<div class="hist-card">
         <div class="hc-top">
-          <span>${_cfg.terrains?.[r.terrainId]?.nom || r.terrainId} · ${r.creneau}</span>
+          <span>${terrainNom} · ${r.creneau}</span>
           <span class="hc-date">${formatDateShort(r.date)}</span>
         </div>
         <div class="hc-bottom">
           <span class="hc-montant">${formatFDJ(r.montant)}</span>
           ${solde > 0 && r.statut === 'confirmee' ? `<span class="hc-solde">Dû : ${formatFDJ(solde)}</span>` : ''}
           <span class="hc-statut hc-${r.statut}">${r.statut === 'annulee' ? 'Annulée' : r.statut === 'terminee' ? 'Terminée' : 'En cours'}</span>
+          ${waLink ? `<a class="hc-wa" href="${waLink}" target="_blank" rel="noopener noreferrer">WA</a>` : ''}
         </div>
       </div>`;
     }).join('') + '</div>';
@@ -260,6 +270,14 @@ function closeClientSheet() {
   if (!document.querySelector('.sheet.open')) {
     $('sheet-overlay').classList.add('hidden');
   }
+}
+
+function _waRelanceLink(tel, nom, terrainNom, creneau, dateStr, solde) {
+  const d = (tel || '').replace(/\D/g, '');
+  if (!d) return '';
+  const phone = d.length === 8 ? '253' + d : d;
+  const msg = `Bonjour ${nom}, vous avez un solde de ${formatFDJ(solde)} pour ${terrainNom} · ${creneau} le ${formatDateShort(dateStr)}. Merci de régulariser à votre prochaine venue.`;
+  return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
 }
 
 function esc(s) {
