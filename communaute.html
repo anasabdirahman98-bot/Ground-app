@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Ground — Communauté</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0f0d">
+  <style>
+    :root {
+      --bg: #0a0f0d; --surface: #111815; --surface2: #1a211e; --border: #2a3530;
+      --text: #e8f0eb; --text2: #7a9588; --accent: #86efac; --danger: #ef4444;
+      --warn: #f59e0b; --r-sm: 8px; --r-md: 12px; --r-lg: 16px;
+      --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --touch: 44px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; font-size: 15px; -webkit-font-smoothing: antialiased; }
+    button { cursor: pointer; font: inherit; }
+    input, select, textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 14px; color: var(--text); font: inherit; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    select option { background: var(--surface2); }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; min-height: var(--touch); padding: 0 var(--sp-4); border-radius: var(--r-md); font: inherit; font-weight: 600; border: 0; cursor: pointer; }
+    .btn:active { opacity: .8; }
+    .btn-primary { background: var(--accent); color: #0a0f0d; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-danger { background: rgba(239,68,68,.12); color: var(--danger); border: 1px solid rgba(239,68,68,.3); }
+    .btn-full { width: 100%; }
+    .btn-sm { min-height: 36px; padding: 0 12px; font-size: .85rem; }
+
+    /* ── AUTH ─────────────────────────────────────────────────────── */
+    #auth-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); }
+    #auth-screen[hidden] { display: none; }
+    .auth-box { width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-5) var(--sp-5) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
+    .auth-logo { font-size: 1.4rem; font-weight: 800; color: var(--accent); letter-spacing: -.02em; }
+    .auth-tabs { display: flex; gap: var(--sp-2); }
+    .auth-tab { flex: 1; padding: 10px; border: 1px solid var(--border); background: none; color: var(--text2); border-radius: var(--r-sm); }
+    .auth-tab.active { background: var(--surface2); color: var(--text); font-weight: 600; border-color: var(--border); }
+    .auth-fields { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .auth-fields label { font-size: .8rem; color: var(--text2); display: block; margin-bottom: 4px; }
+    .auth-err { font-size: .85rem; color: var(--danger); min-height: 18px; }
+
+    /* ── MAIN APP ─────────────────────────────────────────────────── */
+    #main-app { display: flex; flex-direction: column; height: 100dvh; }
+    #main-app[hidden] { display: none; }
+    .app-header { display: flex; align-items: center; gap: var(--sp-3); padding: 12px var(--sp-4); background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .app-logo { font-size: 1.1rem; font-weight: 800; color: var(--accent); flex: 1; }
+    .app-pseudo { font-size: .85rem; color: var(--text2); }
+    .app-logout { background: none; border: 0; color: var(--text2); font-size: .85rem; padding: 6px 10px; border-radius: var(--r-sm); }
+    .app-body { flex: 1; overflow-y: auto; padding: var(--sp-4); }
+    .app-nav { display: flex; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; padding-bottom: env(safe-area-inset-bottom); }
+    .nav-btn { flex: 1; padding: 10px 4px; border: 0; background: none; color: var(--text2); display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: .7rem; }
+    .nav-btn.active { color: var(--accent); }
+    .nav-icon { font-size: 1.3rem; line-height: 1; }
+
+    /* ── CARDS ────────────────────────────────────────────────────── */
+    .card-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-4); }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--sp-2); gap: var(--sp-2); }
+    .card-title { font-weight: 700; font-size: 1rem; }
+    .card-meta { font-size: .8rem; color: var(--text2); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .card-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); flex-wrap: wrap; }
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: .75rem; font-weight: 600; flex-shrink: 0; }
+    .badge-ouvert   { background: rgba(134,239,172,.15); color: var(--accent); }
+    .badge-complet  { background: rgba(245,158,11,.15);  color: var(--warn); }
+    .badge-confirme { background: rgba(99,102,241,.15);  color: #818cf8; }
+    .badge-annule   { background: rgba(239,68,68,.1);    color: var(--danger); }
+    .badge-inscrit  { background: var(--surface2); color: var(--text2); }
+
+    /* ── OVERLAY FORM ─────────────────────────────────────────────── */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 100; display: flex; align-items: flex-end; }
+    .overlay[hidden] { display: none; }
+    .form-sheet { width: 100%; max-height: 90dvh; overflow-y: auto; background: var(--surface); border-radius: var(--r-lg) var(--r-lg) 0 0; padding: var(--sp-5) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom)); }
+    .form-sheet h3 { font-size: 1.1rem; margin-bottom: var(--sp-4); }
+    .form-fields { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .form-fields label { font-size: .8rem; color: var(--text2); display: block; margin-bottom: 4px; }
+    .form-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-4); }
+    .form-err { font-size: .85rem; color: var(--danger); min-height: 18px; margin-top: var(--sp-2); }
+
+    /* ── PARTICIPANTS ──────────────────────────────────────────────── */
+    .part-list { margin-top: var(--sp-3); display: flex; flex-direction: column; gap: 0; }
+    .part-row { display: flex; align-items: center; gap: var(--sp-3); padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .part-row:last-child { border-bottom: none; }
+    .part-nom { flex: 1; font-size: .9rem; font-weight: 500; }
+    .part-tel { font-size: .8rem; color: var(--text2); }
+    .part-wa { display: inline-flex; align-items: center; padding: 3px 8px; background: #25D366; color: #fff; border-radius: var(--r-sm); font-size: .75rem; font-weight: 600; text-decoration: none; }
+
+    /* ── MISC ─────────────────────────────────────────────────────── */
+    .empty-state { text-align: center; padding: 48px var(--sp-4); color: var(--text2); }
+    .empty-icon { font-size: 2.5rem; margin-bottom: var(--sp-3); }
+    .profile-card { background: var(--surface2); border-radius: var(--r-lg); padding: var(--sp-5); text-align: center; margin-bottom: var(--sp-4); }
+    .profile-nom { font-size: 1.3rem; font-weight: 700; margin-bottom: 4px; }
+    .profile-meta { font-size: .85rem; color: var(--text2); }
+    .sec-title { font-weight: 700; font-size: .85rem; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin: var(--sp-4) 0 var(--sp-3); }
+    .sec-title:first-child { margin-top: 0; }
+    .row-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-4); }
+    .row-hdr .sec-title { margin: 0; }
+    .info-box { background: rgba(134,239,172,.08); border: 1px solid rgba(134,239,172,.2); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); font-size: .85rem; color: var(--accent); margin-bottom: var(--sp-3); }
+  </style>
+</head>
+<body>
+
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">Ground ⚽</div>
+    <p style="font-size:.85rem;color:var(--text2)">Rejoignez la communauté — organisez des matchs, formez des équipes.</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login">Connexion</button>
+      <button class="auth-tab" id="tab-register">Inscription</button>
+    </div>
+
+    <div id="login-fields" class="auth-fields">
+      <div><label>Email</label><input id="l-email" type="email" autocomplete="email" placeholder="vous@exemple.com"></div>
+      <div><label>Mot de passe</label><input id="l-pass" type="password" autocomplete="current-password"></div>
+    </div>
+
+    <div id="register-fields" class="auth-fields" hidden>
+      <div><label>Prénom & Nom *</label><input id="r-nom" type="text" placeholder="Ahmed Ali" autocomplete="name"></div>
+      <div><label>Pseudo (optionnel)</label><input id="r-pseudo" type="text" placeholder="surnom" autocomplete="off"></div>
+      <div><label>Niveau</label>
+        <select id="r-niveau">
+          <option value="loisir">Loisir</option>
+          <option value="intermediaire">Intermédiaire</option>
+          <option value="competitive">Compétitif</option>
+        </select>
+      </div>
+      <div><label>Email *</label><input id="r-email" type="email" autocomplete="email"></div>
+      <div><label>Mot de passe * (min. 6 car.)</label><input id="r-pass" type="password" autocomplete="new-password"></div>
+    </div>
+
+    <div id="auth-err" class="auth-err"></div>
+    <button class="btn btn-primary btn-full" id="auth-submit">Se connecter</button>
+  </div>
+</div>
+
+<div id="main-app" hidden>
+  <header class="app-header">
+    <span class="app-logo">Ground</span>
+    <span id="app-pseudo" class="app-pseudo"></span>
+    <button class="app-logout" id="btn-logout">Déco.</button>
+  </header>
+  <div class="app-body" id="app-body"></div>
+  <nav class="app-nav">
+    <button class="nav-btn active" data-tab="matchs"><span class="nav-icon">⚽</span><span>Matchs</span></button>
+    <button class="nav-btn" data-tab="mes-matchs"><span class="nav-icon">📋</span><span>Mes matchs</span></button>
+    <button class="nav-btn" data-tab="equipes"><span class="nav-icon">🏆</span><span>Équipes</span></button>
+    <button class="nav-btn" data-tab="profil"><span class="nav-icon">👤</span><span>Profil</span></button>
+  </nav>
+</div>
+
+<div id="overlay" class="overlay" hidden>
+  <div class="form-sheet" id="form-sheet"></div>
+</div>
+
+<script type="module">
+import {
+  onAuthChange, loginJoueur, registerJoueur, logoutJoueur,
+  setJoueurPublic, setJoueurPrive, getJoueurPrive,
+  onJoueurPublic, onEquipes, createEquipe, joinEquipe, leaveEquipe,
+  onMatchsOuverts, createMatchOuvert, joinMatch, leaveMatch, updateMatchStatut
+} from './js/communaute-db.js';
+
+const $ = id => document.getElementById(id);
+
+let _user = null, _profile = null, _matchs = [], _equipes = [];
+let _activeTab = 'matchs', _unsubs = [];
+
+// ── UTILS ──────────────────────────────────────────────────────────────────────
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const niveauLabel = n => ({loisir:'Loisir',intermediaire:'Intermédiaire',competitive:'Compétitif',tout:'Tous niveaux'}[n]||n);
+const sportLabel  = s => ({foot5:'Foot 5×5',foot7:'Foot 7×7',both:'Foot 5 & 7'}[s]||s||'');
+const statutLabel = s => ({ouvert:'Ouvert',complet:'Complet',confirme:'Confirmé',annule:'Annulé'}[s]||s);
+const dateLabel   = d => { if(!d) return ''; return new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}); };
+const errMsg = {
+  'auth/invalid-credential':'Email ou mot de passe incorrect.',
+  'auth/user-not-found':'Aucun compte avec cet email.',
+  'auth/wrong-password':'Mot de passe incorrect.',
+  'auth/email-already-in-use':'Cet email est déjà utilisé.',
+  'auth/weak-password':'Mot de passe trop court (min. 6 caractères).',
+  'auth/too-many-requests':'Trop de tentatives. Réessayez plus tard.'
+};
+
+// ── AUTH ───────────────────────────────────────────────────────────────────────
+let _isRegister = false;
+$('tab-login').onclick = () => { _isRegister=false; $('tab-login').classList.add('active'); $('tab-register').classList.remove('active'); $('login-fields').hidden=false; $('register-fields').hidden=true; $('auth-submit').textContent='Se connecter'; $('auth-err').textContent=''; };
+$('tab-register').onclick = () => { _isRegister=true; $('tab-register').classList.add('active'); $('tab-login').classList.remove('active'); $('register-fields').hidden=false; $('login-fields').hidden=true; $('auth-submit').textContent="S'inscrire"; $('auth-err').textContent=''; };
+
+$('auth-submit').onclick = async () => {
+  $('auth-err').textContent = '';
+  const btn = $('auth-submit'); btn.disabled = true;
+  try {
+    if (!_isRegister) {
+      await loginJoueur($('l-email').value.trim(), $('l-pass').value);
+    } else {
+      const nom = $('r-nom').value.trim();
+      if (!nom) throw new Error('Le prénom/nom est obligatoire.');
+      const cred = await registerJoueur($('r-email').value.trim(), $('r-pass').value);
+      await setJoueurPublic(cred.user.uid, { nom, pseudo: $('r-pseudo').value.trim()||'', niveau: $('r-niveau').value, createdAt: Date.now() });
+    }
+  } catch(e) { $('auth-err').textContent = errMsg[e.code]||e.message; btn.disabled=false; }
+};
+$('l-pass').addEventListener('keydown', e => { if(e.key==='Enter') $('auth-submit').click(); });
+
+onAuthChange(user => {
+  _user = user;
+  if (user) { $('auth-screen').hidden=true; $('main-app').hidden=false; _start(); }
+  else { $('auth-screen').hidden=false; $('main-app').hidden=true; _stop(); $('auth-submit').disabled=false; }
+});
+$('btn-logout').onclick = () => logoutJoueur();
+
+// ── LIFECYCLE ──────────────────────────────────────────────────────────────────
+function _start() {
+  _unsubs.push(onJoueurPublic(_user.uid, p => { _profile=p; $('app-pseudo').textContent=p?.pseudo||p?.nom||''; _renderTab(); }));
+  _unsubs.push(onMatchsOuverts(list => { _matchs=list; _renderTab(); }));
+  _unsubs.push(onEquipes(list => { _equipes=list; _renderTab(); }));
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.onclick = () => {
+      _activeTab = btn.dataset.tab;
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b===btn));
+      _renderTab();
+    };
+  });
+}
+function _stop() { _unsubs.forEach(fn=>fn()); _unsubs=[]; }
+function _renderTab() {
+  const body = $('app-body');
+  if (_activeTab==='matchs')     _renderMatchs(body);
+  else if (_activeTab==='mes-matchs') _renderMesMatchs(body);
+  else if (_activeTab==='equipes')    _renderEquipes(body);
+  else if (_activeTab==='profil')     _renderProfil(body);
+}
+function _openOverlay(html, onBind) {
+  $('form-sheet').innerHTML = html;
+  $('overlay').hidden = false;
+  onBind?.();
+}
+function _closeOverlay() { $('overlay').hidden = true; }
+$('overlay').addEventListener('click', e => { if(e.target===$('overlay')) _closeOverlay(); });
+
+// ── MATCHS OUVERTS ────────────────────────────────────────────────────────────
+function _renderMatchs(body) {
+  const actifs = _matchs.filter(m => m.statut==='ouvert'||m.statut==='complet');
+  body.innerHTML = `<div class="row-hdr"><p class="sec-title">Matchs disponibles</p><button class="btn btn-primary btn-sm" id="btn-new-match">+ Nouveau</button></div>` +
+    (!actifs.length
+      ? `<div class="empty-state"><div class="empty-icon">⚽</div><p>Aucun match ouvert pour l'instant.</p><p style="margin-top:8px;font-size:.85rem">Soyez le premier à en créer un !</p></div>`
+      : `<div class="card-list">${actifs.map(_matchCard).join('')}</div>`
+    );
+  $('btn-new-match').onclick = _openNewMatchForm;
+  body.querySelectorAll('.btn-join').forEach(b => b.onclick = () => _joinMatch(b.dataset.id));
+  body.querySelectorAll('.btn-leave').forEach(b => b.onclick = () => _leaveMatch(b.dataset.id));
+  body.querySelectorAll('.btn-detail').forEach(b => b.onclick = () => _openMatchDetail(b.dataset.id));
+}
+
+function _matchCard(m) {
+  const nbPart = Object.keys(m.participants||{}).length;
+  const isJoined = !!(m.participants||{})[_user?.uid];
+  const isFull = nbPart >= m.placesTotal;
+  return `<div class="card">
+    <div class="card-header"><span class="card-title">${esc(m.titre||sportLabel(m.sport))}</span><span class="badge badge-${m.statut}">${statutLabel(m.statut)}</span></div>
+    <div class="card-meta">${sportLabel(m.sport)} · ${niveauLabel(m.niveau)}${m.date?` · ${dateLabel(m.date)}`:''}${m.heure?` · ${esc(m.heure)}`:''}</div>
+    <div class="card-meta" style="margin-top:4px">${nbPart}/${m.placesTotal} joueur${m.placesTotal>1?'s':''}${m.terrainNom?` · ${esc(m.terrainNom)}`:''}</div>
+    <div class="card-actions">
+      ${!isJoined&&!isFull?`<button class="btn btn-primary btn-sm btn-join" data-id="${m.id}">Rejoindre</button>`:''}
+      ${isJoined?`<button class="btn btn-danger btn-sm btn-leave" data-id="${m.id}">Se désinscrire</button>`:''}
+      <button class="btn btn-secondary btn-sm btn-detail" data-id="${m.id}">Participants</button>
+    </div>
+  </div>`;
+}
+
+async function _joinMatch(matchId) {
+  if (!_profile) return;
+  try {
+    await joinMatch(matchId, _user.uid, { nom: _profile.nom||'' });
+    const m = _matchs.find(x=>x.id===matchId);
+    const nb = Object.keys(m?.participants||{}).length + 1;
+    if (m && nb >= m.placesTotal) await updateMatchStatut(matchId, { statut:'complet' });
+  } catch(e) { alert(e.message); }
+}
+async function _leaveMatch(matchId) {
+  try {
+    await leaveMatch(matchId, _user.uid);
+    const m = _matchs.find(x=>x.id===matchId);
+    if (m?.statut==='complet') await updateMatchStatut(matchId, { statut:'ouvert' });
+  } catch(e) { alert(e.message); }
+}
+
+function _openMatchDetail(matchId) {
+  const m = _matchs.find(x=>x.id===matchId); if(!m) return;
+  const parts = Object.entries(m.participants||{});
+  const isConfirme = m.statut==='confirme';
+  _openOverlay(`
+    <h3>${esc(m.titre||sportLabel(m.sport))}</h3>
+    <div class="card-meta" style="margin-bottom:var(--sp-3)">${sportLabel(m.sport)} · ${niveauLabel(m.niveau)}${m.date?' · '+dateLabel(m.date):''}${m.heure?' · '+esc(m.heure):''}${m.terrainNom?' · '+esc(m.terrainNom):''}</div>
+    ${isConfirme?'<div class="info-box">✓ Match confirmé — les contacts sont partagés entre participants confirmés.</div>':''}
+    <p style="font-size:.85rem;color:var(--text2);margin-bottom:var(--sp-2)">Participants (${parts.length}/${m.placesTotal})</p>
+    <div class="part-list">${parts.map(([uid,p]) => `
+      <div class="part-row">
+        <span class="part-nom">${esc(p.nom||'—')}</span>
+        ${isConfirme&&p.telephone?`<a class="part-wa" href="https://wa.me/${_waPhone(p.telephone)}" target="_blank">WA</a>`:''}
+        ${isConfirme&&p.telephone?`<span class="part-tel">${esc(p.telephone)}</span>`:''}
+        <span class="badge badge-${p.statut||'inscrit'}">${p.statut==='confirme'?'✓':'…'}</span>
+      </div>`).join('')}
+    </div>
+    <div class="form-actions" style="margin-top:var(--sp-4)"><button class="btn btn-secondary btn-full" id="det-close">Fermer</button></div>`, () => {
+    $('det-close').onclick = _closeOverlay;
+  });
+}
+
+function _waPhone(tel) { const d=(tel||'').replace(/\D/g,''); return d.length===8?'253'+d:d; }
+
+function _openNewMatchForm() {
+  const today = new Date().toLocaleDateString('en-CA');
+  _openOverlay(`
+    <h3>Nouveau match ouvert</h3>
+    <div class="form-fields">
+      <div><label>Titre (optionnel)</label><input id="nm-titre" type="text" placeholder="Match amical…"></div>
+      <div><label>Sport</label><select id="nm-sport"><option value="foot5">Foot 5×5</option><option value="foot7">Foot 7×7</option></select></div>
+      <div><label>Niveau</label><select id="nm-niveau"><option value="tout">Tous niveaux</option><option value="loisir">Loisir</option><option value="intermediaire">Intermédiaire</option><option value="competitive">Compétitif</option></select></div>
+      <div><label>Date souhaitée</label><input id="nm-date" type="date" value="${today}"></div>
+      <div><label>Heure (optionnel)</label><input id="nm-heure" type="time"></div>
+      <div><label>Nombre de places *</label><input id="nm-places" type="number" min="2" max="22" value="10"></div>
+      <div><label>Minimum pour confirmer</label><input id="nm-min" type="number" min="2" max="22" value="8"></div>
+    </div>
+    <div id="nm-err" class="form-err"></div>
+    <div class="form-actions"><button class="btn btn-secondary" id="nm-cancel">Annuler</button><button class="btn btn-primary" id="nm-submit">Créer</button></div>`, () => {
+    $('nm-cancel').onclick = _closeOverlay;
+    $('nm-submit').onclick = async () => {
+      const places = parseInt($('nm-places').value, 10);
+      if (!places||places<2) { $('nm-err').textContent='Nombre de places invalide.'; return; }
+      $('nm-submit').disabled = true;
+      try {
+        await createMatchOuvert({ titre:$('nm-titre').value.trim(), sport:$('nm-sport').value, niveau:$('nm-niveau').value, date:$('nm-date').value, heure:$('nm-heure').value||'', placesTotal:places, placesMin:parseInt($('nm-min').value,10)||places, terrainNom:'', createdBy:_user.uid, createdByNom:_profile?.nom||'' });
+        _closeOverlay();
+      } catch(e) { $('nm-err').textContent=e.message; $('nm-submit').disabled=false; }
+    };
+  });
+}
+
+// ── MES MATCHS ─────────────────────────────────────────────────────────────────
+function _renderMesMatchs(body) {
+  const mes = _matchs.filter(m => !!(m.participants||{})[_user?.uid]);
+  body.innerHTML = `<p class="sec-title">Mes inscriptions</p>` +
+    (!mes.length
+      ? `<div class="empty-state"><div class="empty-icon">📋</div><p>Vous n'êtes inscrit à aucun match.</p></div>`
+      : `<div class="card-list">${mes.map(m => {
+          const isConfirme = m.statut==='confirme';
+          return `<div class="card">
+            <div class="card-header"><span class="card-title">${esc(m.titre||sportLabel(m.sport))}</span><span class="badge badge-${m.statut}">${statutLabel(m.statut)}</span></div>
+            <div class="card-meta">${sportLabel(m.sport)} · ${niveauLabel(m.niveau)}${m.date?' · '+dateLabel(m.date):''}</div>
+            ${isConfirme?`<p style="margin-top:8px;font-size:.85rem;color:var(--accent)">✓ Confirmé — voir les contacts dans les détails</p>`:''}
+            <div class="card-actions">
+              <button class="btn btn-secondary btn-sm btn-detail" data-id="${m.id}">Voir participants</button>
+              ${m.statut!=='confirme'?`<button class="btn btn-danger btn-sm btn-leave" data-id="${m.id}">Se désinscrire</button>`:''}
+            </div>
+          </div>`;
+        }).join('')}</div>`
+    );
+  body.querySelectorAll('.btn-detail').forEach(b => b.onclick = () => _openMatchDetail(b.dataset.id));
+  body.querySelectorAll('.btn-leave').forEach(b => b.onclick = () => _leaveMatch(b.dataset.id));
+}
+
+// ── ÉQUIPES ────────────────────────────────────────────────────────────────────
+function _renderEquipes(body) {
+  body.innerHTML = `<div class="row-hdr"><p class="sec-title">Équipes</p><button class="btn btn-primary btn-sm" id="btn-new-eq">+ Créer</button></div>` +
+    (!_equipes.length
+      ? `<div class="empty-state"><div class="empty-icon">🏆</div><p>Aucune équipe créée.</p></div>`
+      : `<div class="card-list">${_equipes.map(eq => {
+          const nb = Object.keys(eq.membres||{}).length;
+          const isCap = eq.capitaineId===_user?.uid;
+          const isMembre = !!(eq.membres||{})[_user?.uid];
+          return `<div class="card">
+            <div class="card-header"><span class="card-title">${esc(eq.nom)}</span>${isCap?'<span class="badge badge-confirme">Cap.</span>':''}</div>
+            <div class="card-meta">${sportLabel(eq.sport)} · ${niveauLabel(eq.niveau)} · ${nb} membre${nb>1?'s':''}</div>
+            <div class="card-actions">
+              ${!isMembre?`<button class="btn btn-primary btn-sm btn-join-eq" data-id="${eq.id}">Rejoindre</button>`:''}
+              ${isMembre&&!isCap?`<button class="btn btn-danger btn-sm btn-leave-eq" data-id="${eq.id}">Quitter</button>`:''}
+            </div>
+          </div>`;
+        }).join('')}</div>`
+    );
+  $('btn-new-eq').onclick = _openNewEquipeForm;
+  body.querySelectorAll('.btn-join-eq').forEach(b => b.onclick = async () => { try { await joinEquipe(b.dataset.id,_user.uid,{nom:_profile?.nom||'',role:'membre'}); } catch(e){alert(e.message);} });
+  body.querySelectorAll('.btn-leave-eq').forEach(b => b.onclick = async () => { try { await leaveEquipe(b.dataset.id,_user.uid); } catch(e){alert(e.message);} });
+}
+
+function _openNewEquipeForm() {
+  _openOverlay(`
+    <h3>Créer une équipe</h3>
+    <div class="form-fields">
+      <div><label>Nom de l'équipe *</label><input id="eq-nom" type="text" placeholder="Les Aigles"></div>
+      <div><label>Sport</label><select id="eq-sport"><option value="foot5">Foot 5×5</option><option value="foot7">Foot 7×7</option><option value="both">Foot 5 & 7</option></select></div>
+      <div><label>Niveau</label><select id="eq-niveau"><option value="loisir">Loisir</option><option value="intermediaire">Intermédiaire</option><option value="competitive">Compétitif</option></select></div>
+    </div>
+    <div id="eq-err" class="form-err"></div>
+    <div class="form-actions"><button class="btn btn-secondary" id="eq-cancel">Annuler</button><button class="btn btn-primary" id="eq-submit">Créer</button></div>`, () => {
+    $('eq-cancel').onclick = _closeOverlay;
+    $('eq-submit').onclick = async () => {
+      const nom = $('eq-nom').value.trim();
+      if (!nom) { $('eq-err').textContent='Le nom est obligatoire.'; return; }
+      $('eq-submit').disabled = true;
+      try {
+        const id = await createEquipe({ nom, sport:$('eq-sport').value, niveau:$('eq-niveau').value, capitaineId:_user.uid });
+        await joinEquipe(id, _user.uid, { nom:_profile?.nom||'', role:'capitaine' });
+        _closeOverlay();
+      } catch(e) { $('eq-err').textContent=e.message; $('eq-submit').disabled=false; }
+    };
+  });
+}
+
+// ── PROFIL ─────────────────────────────────────────────────────────────────────
+function _renderProfil(body) {
+  const p = _profile||{};
+  body.innerHTML = `
+    <div class="profile-card">
+      <div class="profile-nom">${esc(p.nom||'Joueur')}</div>
+      <div class="profile-meta">${p.pseudo?'@'+esc(p.pseudo)+' · ':''}${niveauLabel(p.niveau)}</div>
+    </div>
+    <p class="sec-title">Mon profil public</p>
+    <div class="form-fields">
+      <div><label>Prénom & Nom *</label><input id="p-nom" type="text" value="${esc(p.nom||'')}"></div>
+      <div><label>Pseudo</label><input id="p-pseudo" type="text" value="${esc(p.pseudo||'')}"></div>
+      <div><label>Niveau</label><select id="p-niveau">
+        <option value="loisir" ${p.niveau==='loisir'?'selected':''}>Loisir</option>
+        <option value="intermediaire" ${p.niveau==='intermediaire'?'selected':''}>Intermédiaire</option>
+        <option value="competitive" ${p.niveau==='competitive'?'selected':''}>Compétitif</option>
+      </select></div>
+    </div>
+    <p class="sec-title" style="margin-top:var(--sp-5)">Coordonnées privées</p>
+    <p style="font-size:.8rem;color:var(--text2);margin-bottom:var(--sp-3)">Partagé uniquement avec vos coéquipiers après confirmation d'un match.</p>
+    <div class="form-fields">
+      <div><label>Téléphone</label><input id="p-tel" type="tel" placeholder="77 00 00 00" inputmode="tel"></div>
+    </div>
+    <div id="p-msg" style="font-size:.85rem;min-height:18px;margin-top:var(--sp-2)"></div>
+    <div style="margin-top:var(--sp-4)"><button class="btn btn-primary btn-full" id="p-save">Enregistrer</button></div>`;
+  getJoueurPrive(_user.uid).then(pv => { if(pv?.telephone) $('p-tel').value=pv.telephone; }).catch(()=>{});
+  $('p-save').onclick = async () => {
+    const nom = $('p-nom').value.trim();
+    if (!nom) { $('p-msg').style.color='var(--danger)'; $('p-msg').textContent='Le nom est obligatoire.'; return; }
+    $('p-save').disabled = true;
+    try {
+      await setJoueurPublic(_user.uid, { nom, pseudo:$('p-pseudo').value.trim(), niveau:$('p-niveau').value });
+      const tel = $('p-tel').value.trim();
+      if (tel) await setJoueurPrive(_user.uid, { telephone: tel });
+      $('p-msg').style.color = 'var(--accent)';
+      $('p-msg').textContent = '✓ Profil mis à jour.';
+      setTimeout(() => $('p-msg').textContent='', 2500);
+    } catch(e) { $('p-msg').style.color='var(--danger)'; $('p-msg').textContent=e.message; }
+    finally { $('p-save').disabled=false; }
+  };
+}
+</script>
+</body>
+</html>
