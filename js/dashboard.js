@@ -18,6 +18,7 @@ let _journal = [];
 let _unsubs = [];
 let _statsChart = null;
 let _statsPeriod = 7;
+let _syntheseMonth = todayDate().slice(0, 7);
 
 export function init(config, user) {
   _cfg = config;
@@ -46,7 +47,8 @@ function _initTabs() {
   const tabs = [
     { id: 'dash-tab-today', panel: 'dash-panel-today', onActivate: null },
     { id: 'dash-tab-stats', panel: 'dash-panel-stats', onActivate: _loadStats },
-    { id: 'dash-tab-clotures', panel: 'dash-panel-clotures', onActivate: _loadClotures }
+    { id: 'dash-tab-clotures', panel: 'dash-panel-clotures', onActivate: _loadClotures },
+    { id: 'dash-tab-synthese', panel: 'dash-panel-synthese', onActivate: _loadSynthese }
   ];
   tabs.forEach(({ id, panel, onActivate }) => {
     const btn = $(id);
@@ -414,6 +416,169 @@ async function _loadClotures() {
       </div>
     </div>`;
   }).join('') + '</div>';
+}
+
+// ─── SYNTHÈSE MENSUELLE TAB ──────────────────────────────────────────────────
+
+async function _loadSynthese() {
+  const el = $('synthese-content');
+  if (!el) return;
+  el.innerHTML = '<p class="loading-msg">Chargement…</p>';
+
+  const [year, month] = _syntheseMonth.split('-').map(Number);
+  const dateDebut = `${year}-${String(month).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const dateFin = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  const today = todayDate();
+  const effectiveFin = dateFin > today ? today : dateFin;
+
+  const [paiements, resas] = await Promise.all([
+    getPaiementsForPeriod(dateDebut, effectiveFin),
+    getReservationsForPeriod(dateDebut, effectiveFin)
+  ]);
+
+  const totalCA = paiements.reduce((s, p) =>
+    s + (p.type === 'ajustement' ? -Math.abs(p.montant) : p.montant), 0);
+
+  const byMode = {};
+  paiements.forEach(p => {
+    const delta = p.type === 'ajustement' ? -Math.abs(p.montant) : p.montant;
+    byMode[p.mode] = (byMode[p.mode] || 0) + delta;
+  });
+
+  const actives = resas.filter(r => r.statut !== 'annulee');
+  const annulees = resas.filter(r => r.statut === 'annulee');
+  const nbDays = _countDays(dateDebut, effectiveFin);
+  const occupation = _computeOccupationPeriod(actives, nbDays);
+
+  const clientStats = {};
+  actives.forEach(r => {
+    const key = r.clientId || r.clientNom || '—';
+    const nom = r.clientNom || '—';
+    if (!clientStats[key]) clientStats[key] = { nom, ca: 0, visites: 0 };
+    clientStats[key].ca += r.totalPaye || 0;
+    clientStats[key].visites++;
+  });
+  const byCA = Object.values(clientStats).sort((a, b) => b.ca - a.ca).slice(0, 10);
+  const byVisites = Object.values(clientStats).sort((a, b) => b.visites - a.visites).slice(0, 10);
+
+  const monthLabel = new Date(year, month - 1, 1)
+    .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  el.innerHTML = `
+    <div class="dash-section">
+      <div style="display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;margin-bottom:var(--sp-3)">
+        <h2 class="dash-title" style="margin:0">Synthèse — ${esc(monthLabel)}</h2>
+        <input type="month" id="synth-month" value="${_syntheseMonth}"
+               style="background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:6px 10px;color:var(--texte);font-size:.9rem">
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <span class="kpi-label">CA encaissé</span>
+          <span class="kpi-val lime">${formatFDJ(totalCA)}</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Réservations</span>
+          <span class="kpi-val">${actives.length}</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Annulations</span>
+          <span class="kpi-val danger">${annulees.length}</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Jours couverts</span>
+          <span class="kpi-val">${nbDays}</span>
+        </div>
+      </div>
+    </div>
+    <div class="dash-section">
+      <h3 class="dash-sub">Encaissements par mode</h3>
+      <div class="modes-grid">${_renderModes(byMode)}</div>
+    </div>
+    <div class="dash-section">
+      <h3 class="dash-sub">Occupation moyenne par terrain</h3>
+      <div class="occ-list">${_renderOccupation(occupation)}</div>
+    </div>
+    <div class="dash-section">
+      <h3 class="dash-sub">Top clients — CA généré</h3>
+      ${_renderTopClients(byCA, 'ca')}
+    </div>
+    <div class="dash-section">
+      <h3 class="dash-sub">Top clients — Visites</h3>
+      ${_renderTopClients(byVisites, 'visites')}
+    </div>
+    <div class="dash-section">
+      <h3 class="dash-sub">Export</h3>
+      <div class="export-btns">
+        <button class="btn btn-ghost btn-sm" id="btn-synth-export">↓ CSV Synthèse</button>
+      </div>
+    </div>
+  `;
+
+  $('synth-month').onchange = e => { _syntheseMonth = e.target.value; _loadSynthese(); };
+  $('btn-synth-export').onclick = () => _exportSyntheseCSV(resas, paiements, clientStats, dateDebut, effectiveFin);
+}
+
+function _computeOccupationPeriod(actives, nbDays) {
+  const { terrains = {}, horaires = {} } = _cfg;
+  const active = Object.entries(terrains).filter(([, t]) => t.actif !== false);
+  if (!active.length || !horaires.ouverture || !nbDays) return [];
+  const slotsPerDay = generateSlots(
+    horaires.ouverture, horaires.fermeture, horaires.dureeCreneauMin || 60
+  ).length;
+  const totalPossible = slotsPerDay * nbDays;
+  return active.map(([tid, t]) => {
+    const reserved = actives.filter(r => r.terrainId === tid).length;
+    const pct = totalPossible > 0 ? Math.round((reserved / totalPossible) * 100) : 0;
+    return { nom: t.nom, reserved, total: totalPossible, pct };
+  });
+}
+
+function _countDays(dateDebut, dateFin) {
+  const a = new Date(dateDebut), b = new Date(dateFin);
+  return Math.round((b - a) / 86400000) + 1;
+}
+
+function _renderTopClients(clients, metric) {
+  if (!clients.length) return '<p class="empty-msg">Aucune donnée.</p>';
+  return '<div class="emp-list">' + clients.map((c, i) =>
+    `<div class="emp-row">
+      <span class="emp-nom">${i + 1}. ${esc(c.nom)}</span>
+      <span class="emp-ca lime">${metric === 'ca'
+        ? formatFDJ(c.ca)
+        : c.visites + ' visite' + (c.visites > 1 ? 's' : '')}</span>
+    </div>`
+  ).join('') + '</div>';
+}
+
+function _exportSyntheseCSV(resas, paiements, clientStats, dateDebut, dateFin) {
+  const totalCA = paiements.reduce((s, p) =>
+    s + (p.type === 'ajustement' ? -Math.abs(p.montant) : p.montant), 0);
+  const actives = resas.filter(r => r.statut !== 'annulee');
+  const annulees = resas.filter(r => r.statut === 'annulee');
+
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [
+    ['Métrique', 'Valeur'].join(';'),
+    [q('CA encaissé (FDJ)'), q(totalCA)].join(';'),
+    [q('Réservations actives'), q(actives.length)].join(';'),
+    [q('Annulations'), q(annulees.length)].join(';'),
+    ['', ''].join(';'),
+    ['Client', 'Visites', 'CA généré (FDJ)'].join(';'),
+    ...Object.values(clientStats)
+      .sort((a, b) => b.ca - a.ca)
+      .map(c => [q(c.nom), q(c.visites), q(c.ca)].join(';'))
+  ];
+
+  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ground-synthese-${dateDebut.slice(0, 7)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
