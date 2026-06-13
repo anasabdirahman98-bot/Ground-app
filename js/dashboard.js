@@ -1,6 +1,6 @@
 import {
   onReservationsForDate, onPaiementsForDate, onJournalForDate, onUsers,
-  getPaiementsForPeriod, getReservationsForPeriod, getCloturesForPeriod
+  getPaiementsForPeriod, getReservationsForPeriod, getCloturesForPeriod, getClients
 } from './db.js';
 import {
   todayDate, addDays, formatDate, formatDateShort, formatFDJ, formatDateTime,
@@ -432,10 +432,14 @@ async function _loadSynthese() {
   const today = todayDate();
   const effectiveFin = dateFin > today ? today : dateFin;
 
-  const [paiements, resas] = await Promise.all([
+  const [paiements, resas, clients] = await Promise.all([
     getPaiementsForPeriod(dateDebut, effectiveFin),
-    getReservationsForPeriod(dateDebut, effectiveFin)
+    getReservationsForPeriod(dateDebut, effectiveFin),
+    getClients()
   ]);
+
+  const clientsById = {};
+  clients.forEach(c => { clientsById[c.id] = c; });
 
   const totalCA = paiements.reduce((s, p) =>
     s + (p.type === 'ajustement' ? -Math.abs(p.montant) : p.montant), 0);
@@ -455,12 +459,19 @@ async function _loadSynthese() {
   actives.forEach(r => {
     const key = r.clientId || r.clientNom || '—';
     const nom = r.clientNom || '—';
-    if (!clientStats[key]) clientStats[key] = { nom, ca: 0, visites: 0 };
+    const tel = r.clientId ? (clientsById[r.clientId]?.tel || '') : '';
+    if (!clientStats[key]) clientStats[key] = { nom, tel, ca: 0, visites: 0, lastVisit: '' };
     clientStats[key].ca += r.totalPaye || 0;
     clientStats[key].visites++;
+    if (!clientStats[key].lastVisit || r.date > clientStats[key].lastVisit) {
+      clientStats[key].lastVisit = r.date;
+    }
   });
-  const byCA = Object.values(clientStats).sort((a, b) => b.ca - a.ca).slice(0, 10);
-  const byVisites = Object.values(clientStats).sort((a, b) => b.visites - a.visites).slice(0, 10);
+  Object.values(clientStats).forEach(c => {
+    c.panierMoyen = c.visites > 0 ? Math.round(c.ca / c.visites) : 0;
+  });
+  const byCA = Object.values(clientStats).sort((a, b) => b.ca - a.ca);
+  const byVisites = Object.values(clientStats).sort((a, b) => b.visites - a.visites || b.ca - a.ca);
 
   const monthLabel = new Date(year, month - 1, 1)
     .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
@@ -541,14 +552,24 @@ function _countDays(dateDebut, dateFin) {
 
 function _renderTopClients(clients, metric) {
   if (!clients.length) return '<p class="empty-msg">Aucune donnée.</p>';
-  return '<div class="emp-list">' + clients.map((c, i) =>
-    `<div class="emp-row">
-      <span class="emp-nom">${i + 1}. ${esc(c.nom)}</span>
-      <span class="emp-ca lime">${metric === 'ca'
-        ? formatFDJ(c.ca)
-        : c.visites + ' visite' + (c.visites > 1 ? 's' : '')}</span>
-    </div>`
-  ).join('') + '</div>';
+  return '<div class="emp-list">' + clients.map((c, i) => {
+    const primary = metric === 'ca'
+      ? formatFDJ(c.ca)
+      : c.visites + ' visite' + (c.visites > 1 ? 's' : '');
+    const sub = [];
+    if (c.tel) sub.push(`<a href="tel:${esc(c.tel)}" style="color:var(--texte-2);text-decoration:none">${esc(c.tel)}</a>`);
+    if (metric === 'ca' && c.visites > 1) sub.push(`${c.visites} visites`);
+    if (metric === 'visites' && c.ca) sub.push(`CA: ${formatFDJ(c.ca)}`);
+    if (c.panierMoyen) sub.push(`moy. ${formatFDJ(c.panierMoyen)}`);
+    if (c.lastVisit) sub.push(formatDateShort(c.lastVisit));
+    return `<div class="emp-row" style="flex-direction:column;align-items:flex-start;gap:2px">
+      <div style="display:flex;width:100%;justify-content:space-between;align-items:center">
+        <span class="emp-nom">${i + 1}. ${esc(c.nom)}</span>
+        <span class="emp-ca lime">${primary}</span>
+      </div>
+      ${sub.length ? `<div style="font-size:.78rem;color:var(--texte-2);display:flex;gap:var(--sp-3);flex-wrap:wrap">${sub.join(' · ')}</div>` : ''}
+    </div>`;
+  }).join('') + '</div>';
 }
 
 function _exportSyntheseCSV(resas, paiements, clientStats, dateDebut, dateFin) {
@@ -564,10 +585,10 @@ function _exportSyntheseCSV(resas, paiements, clientStats, dateDebut, dateFin) {
     [q('Réservations actives'), q(actives.length)].join(';'),
     [q('Annulations'), q(annulees.length)].join(';'),
     ['', ''].join(';'),
-    ['Client', 'Visites', 'CA généré (FDJ)'].join(';'),
+    ['Rang', 'Client', 'Téléphone', 'Visites', 'CA généré (FDJ)', 'Panier moyen (FDJ)', 'Dernière visite'].join(';'),
     ...Object.values(clientStats)
       .sort((a, b) => b.ca - a.ca)
-      .map(c => [q(c.nom), q(c.visites), q(c.ca)].join(';'))
+      .map((c, i) => [q(i + 1), q(c.nom), q(c.tel), q(c.visites), q(c.ca), q(c.panierMoyen), q(c.lastVisit)].join(';'))
   ];
 
   const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
