@@ -2,6 +2,7 @@ import {
   getConfig, setComplexe, setTerrain, setHoraires, setTarif,
   setModesPaiement, setPolitiqueAnnulation, onUsers, addJournalEntry
 } from './db.js';
+import { onMatchsOuverts, confirmerMatchOuvert, annulerMatchOuvert } from './communaute-db.js';
 import { createEmployee, toggleEmployeeActive } from './auth.js';
 import { todayDate, showToast } from './utils.js';
 
@@ -36,6 +37,7 @@ function _renderNav() {
     <button class="cnav-btn ${_activeSection === 'terrains' ? 'active' : ''}" data-s="terrains">Terrains</button>
     <button class="cnav-btn ${_activeSection === 'horaires' ? 'active' : ''}" data-s="horaires">Horaires & Tarifs</button>
     <button class="cnav-btn ${_activeSection === 'employes' ? 'active' : ''}" data-s="employes">Employés</button>
+    <button class="cnav-btn ${_activeSection === 'communaute' ? 'active' : ''}" data-s="communaute">Communauté</button>
   `;
   $('config-nav').querySelectorAll('.cnav-btn').forEach(btn => {
     btn.onclick = () => { _activeSection = btn.dataset.s; _renderNav(); _renderSection(); };
@@ -44,10 +46,11 @@ function _renderNav() {
 
 function _renderSection() {
   switch (_activeSection) {
-    case 'complexe': return _renderComplexe();
-    case 'terrains': return _renderTerrains();
-    case 'horaires': return _renderHoraires();
-    case 'employes': return _renderEmployes();
+    case 'complexe':    return _renderComplexe();
+    case 'terrains':    return _renderTerrains();
+    case 'horaires':    return _renderHoraires();
+    case 'employes':    return _renderEmployes();
+    case 'communaute':  return _renderCommunaute();
   }
 }
 
@@ -409,6 +412,94 @@ function _openEmployeForm() {
       btn.textContent = 'Créer le compte';
     }
   };
+}
+
+// ─── COMMUNAUTÉ ─────────────────────────────────────────────────────────────
+
+let _comUnsub = null;
+let _comMatchs = [];
+
+function _renderCommunaute() {
+  $('config-body').innerHTML = `
+    <h2 class="cfg-title">Matchs ouverts (Communauté)</h2>
+    <p style="font-size:.85rem;color:var(--texte-2);margin-bottom:var(--sp-4)">
+      Gérez les matchs créés par les joueurs. Confirmez-les pour partager les contacts et programmer une réservation.
+    </p>
+    <div id="com-list"><p class="loading-msg">Chargement…</p></div>`;
+
+  if (_comUnsub) { _comUnsub(); _comUnsub = null; }
+  _comUnsub = onMatchsOuverts(list => {
+    _comMatchs = list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    _renderComList();
+  });
+  _unsubs.push(() => { if (_comUnsub) { _comUnsub(); _comUnsub = null; } });
+}
+
+function _renderComList() {
+  const el = $('com-list');
+  if (!el) return;
+  const actifs = _comMatchs.filter(m => m.statut !== 'annule');
+  if (!actifs.length) { el.innerHTML = '<p class="empty-msg">Aucun match communautaire.</p>'; return; }
+
+  const niveauLabel = n => ({loisir:'Loisir',intermediaire:'Intermédiaire',competitive:'Compétitif',tout:'Tous niveaux'}[n]||n);
+  const sportLabel  = s => ({foot5:'Foot 5×5',foot7:'Foot 7×7',both:'Foot 5 & 7'}[s]||s);
+  const statutCls   = s => ({ouvert:'badge-ouvert',complet:'badge-warn',confirme:'badge-confirme',annule:'badge-annule'}[s]||'');
+  const statutLbl   = s => ({ouvert:'Ouvert',complet:'Complet',confirme:'Confirmé',annule:'Annulé'}[s]||s);
+  const dateLabel   = d => { if(!d) return ''; return new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}); };
+
+  el.innerHTML = '<div class="com-match-list">' + actifs.map(m => {
+    const parts = Object.entries(m.participants || {});
+    const canConfirm = (m.statut === 'ouvert' || m.statut === 'complet') && parts.length >= (m.placesMin || 1);
+    return `<div class="com-card">
+      <div class="com-card-hdr">
+        <span class="com-card-title">${esc(m.titre || sportLabel(m.sport))}</span>
+        <span class="badge ${statutCls(m.statut)}">${statutLbl(m.statut)}</span>
+      </div>
+      <div class="com-card-meta">
+        ${sportLabel(m.sport)} · ${niveauLabel(m.niveau)}
+        ${m.date ? ' · ' + dateLabel(m.date) : ''}
+        ${m.heure ? ' · ' + esc(m.heure) : ''}
+        · ${parts.length}/${m.placesTotal} joueurs
+        ${m.createdByNom ? ' · créé par ' + esc(m.createdByNom) : ''}
+      </div>
+      <div class="com-card-parts">
+        ${parts.map(([,p]) => `<span class="com-part">${esc(p.nom||'—')}</span>`).join('')}
+      </div>
+      <div class="com-card-actions">
+        ${canConfirm ? `<button class="btn btn-sm btn-secondary com-confirm" data-id="${m.id}">✓ Confirmer</button>` : ''}
+        ${m.statut !== 'confirme' ? `<button class="btn btn-sm btn-ghost com-annuler" data-id="${m.id}">Annuler</button>` : ''}
+        ${m.date ? `<a class="btn btn-sm btn-secondary" href="/?date=${m.date}" style="text-decoration:none">Voir planning</a>` : ''}
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+
+  el.querySelectorAll('.com-confirm').forEach(b => {
+    b.onclick = async () => {
+      if (!confirm('Confirmer ce match ? Les contacts seront partagés entre participants.')) return;
+      b.disabled = true;
+      try {
+        await confirmerMatchOuvert(b.dataset.id);
+        await _log('config_modifie', `Match communautaire confirmé : ${b.dataset.id}`);
+        showToast('Match confirmé.', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+        b.disabled = false;
+      }
+    };
+  });
+  el.querySelectorAll('.com-annuler').forEach(b => {
+    b.onclick = async () => {
+      if (!confirm('Annuler ce match ?')) return;
+      b.disabled = true;
+      try {
+        await annulerMatchOuvert(b.dataset.id);
+        showToast('Match annulé.', 'info');
+      } catch (err) {
+        showToast(err.message, 'error');
+        b.disabled = false;
+      }
+    };
+  });
 }
 
 async function _log(action, details) {

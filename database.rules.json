@@ -98,6 +98,53 @@
           ".write": "auth != null && !data.exists() && newData.child('userId').val() === auth.uid"
         }
       }
+    },
+
+    "joueurs": {
+      "$uid": {
+        "public": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['nom','createdAt'])"
+        },
+        "prive": {
+          ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('actif').val() === true)",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+
+    "equipes": {
+      ".read": "auth != null",
+      "$equipeId": {
+        ".write": "auth != null && (!data.exists() || root.child('equipes').child($equipeId).child('capitaineId').val() === auth.uid || root.child('users').child(auth.uid).child('actif').val() === true)",
+        ".validate": "newData.hasChildren(['nom','capitaineId','createdAt'])",
+        "membres": {
+          "$muid": {
+            ".write": "auth != null && (auth.uid === $muid || root.child('equipes').child($equipeId).child('capitaineId').val() === auth.uid || root.child('users').child(auth.uid).child('actif').val() === true)"
+          }
+        }
+      }
+    },
+
+    "matchsOuverts": {
+      ".read": "auth != null",
+      "$matchId": {
+        ".write": "auth != null && (!data.exists() || root.child('users').child(auth.uid).child('actif').val() === true || root.child('matchsOuverts').child($matchId).child('createdBy').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['sport','placesTotal','statut','createdAt'])",
+        "statut": {
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('actif').val() === true || root.child('matchsOuverts').child($matchId).child('createdBy').val() === auth.uid)"
+        },
+        "participants": {
+          "$puid": {
+            ".write": "auth != null && (auth.uid === $puid || root.child('users').child(auth.uid).child('actif').val() === true)",
+            "telephone": {
+              ".read": "auth != null && root.child('matchsOuverts').child($matchId).child('statut').val() === 'confirme' && root.child('matchsOuverts').child($matchId).child('participants').child(auth.uid).child('statut').val() === 'confirme'",
+              ".write": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true"
+            }
+          }
+        }
+      }
     }
   }
 }
