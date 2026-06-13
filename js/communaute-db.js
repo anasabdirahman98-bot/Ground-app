@@ -74,13 +74,16 @@ export async function updateMatchStatut(matchId, updates) {
 }
 
 // ─── GESTION EMPLOYÉ ──────────────────────────────────────────────────────────
-export async function confirmerMatchOuvert(matchId) {
+export async function confirmerMatchOuvert(matchId, extra = {}) {
   const snap = await get(r(`matchsOuverts/${matchId}`));
   const match = snap.val();
   if (!match) throw new Error('Match introuvable.');
   const participants = Object.entries(match.participants || {});
   const updates = {};
   updates[`matchsOuverts/${matchId}/statut`] = 'confirme';
+  for (const [k, v] of Object.entries(extra)) {
+    updates[`matchsOuverts/${matchId}/${k}`] = v;
+  }
   for (const [uid] of participants) {
     updates[`matchsOuverts/${matchId}/participants/${uid}/statut`] = 'confirme';
     try {
