@@ -1,10 +1,11 @@
 import {
   getConfig, setComplexe, setTerrain, setHoraires, setTarif,
-  setModesPaiement, setPolitiqueAnnulation, onUsers, addJournalEntry
+  setModesPaiement, setPolitiqueAnnulation, onUsers, addJournalEntry,
+  createReservation, createClient
 } from './db.js';
 import { onMatchsOuverts, confirmerMatchOuvert, annulerMatchOuvert, deleteMatchOuvert } from './communaute-db.js';
 import { createEmployee, toggleEmployeeActive } from './auth.js';
-import { todayDate, showToast } from './utils.js';
+import { todayDate, showToast, generateSlots, getTarif, formatFDJ } from './utils.js';
 
 const $ = id => document.getElementById(id);
 
@@ -462,6 +463,9 @@ function _renderComList() {
         · ${parts.length}/${m.placesTotal} joueurs
         ${m.createdByNom ? ' · créé par ' + esc(m.createdByNom) : ''}
       </div>
+      ${m.statut === 'confirme' && m.reservationDate ? `<div class="com-card-meta" style="margin-top:4px;color:var(--accent,#86efac)">
+        ✓ Réservé : ${esc(_cfg.terrains?.[m.terrainId]?.nom || m.terrainId || '')} · ${esc(m.creneau || '')} · ${dateLabel(m.reservationDate)}
+      </div>` : ''}
       <div class="com-card-parts">
         ${parts.map(([,p]) => `<span class="com-part">${esc(p.nom||'—')}</span>`).join('')}
       </div>
@@ -474,18 +478,7 @@ function _renderComList() {
   }).join('') + '</div>';
 
   el.querySelectorAll('.com-confirm').forEach(b => {
-    b.onclick = async () => {
-      if (!confirm('Confirmer ce match ? Les contacts seront partagés entre participants.')) return;
-      b.disabled = true;
-      try {
-        await confirmerMatchOuvert(b.dataset.id);
-        await _log('config_modifie', `Match communautaire confirmé : ${b.dataset.id}`);
-        showToast('Match confirmé.', 'success');
-      } catch (err) {
-        showToast(err.message, 'error');
-        b.disabled = false;
-      }
-    };
+    b.onclick = () => _openConfirmMatchForm(b.dataset.id);
   });
   el.querySelectorAll('.com-annuler').forEach(b => {
     b.onclick = async () => {
@@ -514,6 +507,78 @@ function _renderComList() {
       }
     };
   });
+}
+
+function _openConfirmMatchForm(matchId) {
+  const m = _comMatchs.find(x => x.id === matchId);
+  if (!m) return;
+  const terrains = Object.entries(_cfg.terrains || {})
+    .filter(([, t]) => t.actif !== false)
+    .sort(([, a], [, b]) => (a.ordre || 99) - (b.ordre || 99));
+  if (!terrains.length) { showToast('Aucun terrain actif configuré.', 'error'); return; }
+  const h = _cfg.horaires || { ouverture: '08:00', fermeture: '00:00', dureeCreneauMin: 60 };
+  const slots = generateSlots(h.ouverture, h.fermeture, h.dureeCreneauMin || 60);
+  const wished = (m.heure || '').slice(0, 5);
+  const defaultSlot = slots.includes(wished) ? wished : (slots[0] || '');
+  const defaultTid = terrains[0][0];
+  const parts = Object.entries(m.participants || {});
+
+  $('config-body').innerHTML = `
+    <div class="det-header"><button class="btn-back" id="cm-back">← Retour</button></div>
+    <h2 class="cfg-title">Confirmer le match</h2>
+    <p style="font-size:.85rem;color:var(--texte-2);margin-bottom:var(--sp-4)">
+      ${esc(m.titre || '')} · ${parts.length} joueur${parts.length > 1 ? 's' : ''}. La confirmation crée une réservation au planning et partage les contacts entre participants.
+    </p>
+    <form id="form-confirm">
+      <div class="field"><label>Terrain</label>
+        <select id="cm-terrain">${terrains.map(([id, t]) => `<option value="${id}" ${id === defaultTid ? 'selected' : ''}>${esc(t.nom)}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>Date</label><input id="cm-date" type="date" value="${m.date || todayDate()}" required></div>
+      <div class="field"><label>Créneau</label>
+        <select id="cm-creneau">${slots.map(s => `<option value="${s}" ${s === defaultSlot ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>Nom de la réservation (client)</label>
+        <input id="cm-client" type="text" value="${esc(m.titre || m.createdByNom || 'Match communautaire')}" required>
+      </div>
+      <div class="field"><label>Montant (FDJ)</label><input id="cm-montant" type="number" min="0" step="500" required></div>
+      <div id="cm-err" class="error-msg" hidden></div>
+      <button type="submit" class="btn btn-primary">Confirmer & créer la réservation</button>
+    </form>`;
+
+  const _recalc = () => { $('cm-montant').value = getTarif($('cm-terrain').value, $('cm-creneau').value, _cfg.tarifs); };
+  $('cm-back').onclick = _renderCommunaute;
+  $('cm-terrain').onchange = _recalc;
+  $('cm-creneau').onchange = _recalc;
+  _recalc();
+
+  $('form-confirm').onsubmit = async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('[type="submit"]');
+    btn.disabled = true;
+    try {
+      const terrainId = $('cm-terrain').value;
+      const creneau = $('cm-creneau').value;
+      const date = $('cm-date').value;
+      const clientNom = $('cm-client').value.trim();
+      const montant = parseInt($('cm-montant').value, 10);
+      if (!date) throw new Error('Date invalide.');
+      if (!clientNom) throw new Error('Le nom de la réservation est requis.');
+      if (isNaN(montant) || montant < 0) throw new Error('Montant invalide.');
+
+      const clientId = await createClient({ nom: clientNom, telephone: '', source: 'communaute' });
+      const resaId = await createReservation(date, {
+        terrainId, creneau, clientId, clientNom, montant,
+        totalPaye: 0, statutPaiement: 'a_payer', notes: 'Match communautaire',
+        employeId: _user.uid, employeNom: _user.nom
+      });
+      await confirmerMatchOuvert(matchId, { reservationDate: date, reservationId: resaId, terrainId, creneau });
+      await _log('reservation_creee', `Match communautaire confirmé → réservation ${clientNom} ${creneau} (${formatFDJ(montant)})`);
+      showToast('Match confirmé et réservation créée.', 'success');
+      _renderCommunaute();
+    } catch (err) {
+      $('cm-err').textContent = err.message; $('cm-err').hidden = false; btn.disabled = false;
+    }
+  };
 }
 
 async function _log(action, details) {
