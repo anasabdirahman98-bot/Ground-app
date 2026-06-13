@@ -200,7 +200,14 @@ async function _loadStats() {
 
   const today = todayDate();
   const dateDebut = addDays(today, -(_statsPeriod - 1));
-  const paiements = await getPaiementsForPeriod(dateDebut, today);
+  const [paiements, resas] = await Promise.all([
+    getPaiementsForPeriod(dateDebut, today),
+    getReservationsForPeriod(dateDebut, today)
+  ]);
+
+  // Annulations (B3 — dont tardives)
+  const annulations = resas.filter(r => r.statut === 'annulee');
+  const tardives = annulations.filter(r => r.annulationTardive);
 
   // Daily CA
   const dailyCA = {};
@@ -241,10 +248,25 @@ async function _loadStats() {
       <div class="emp-table">${_renderEmpTable(empCA)}</div>
     </div>
     <div class="dash-section">
+      <h3 class="dash-sub">Annulations</h3>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <span class="kpi-label">Total annulations</span>
+          <span class="kpi-val">${annulations.length}</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Dont tardives</span>
+          <span class="kpi-val danger">${tardives.length}</span>
+        </div>
+      </div>
+      ${_renderAnnulationsTardives(tardives)}
+    </div>
+    <div class="dash-section">
       <h3 class="dash-sub">Export données</h3>
       <div class="export-btns">
         <button class="btn btn-ghost btn-sm" id="btn-export-paiements">↓ CSV Paiements</button>
         <button class="btn btn-ghost btn-sm" id="btn-export-resas">↓ CSV Réservations</button>
+        <button class="btn btn-ghost btn-sm" id="btn-export-annulations">↓ CSV Annulations</button>
       </div>
     </div>
   `;
@@ -256,10 +278,19 @@ async function _loadStats() {
   _drawChart('ca-chart', dates, caValues);
 
   $('btn-export-paiements').onclick = () => _exportCSV('paiements', dateDebut, today, paiements);
-  $('btn-export-resas').onclick = async () => {
-    const resas = await getReservationsForPeriod(dateDebut, today);
-    _exportCSV('reservations', dateDebut, today, resas);
-  };
+  $('btn-export-resas').onclick = () => _exportCSV('reservations', dateDebut, today, resas);
+  $('btn-export-annulations').onclick = () => _exportCSV('annulations', dateDebut, today, annulations);
+}
+
+function _renderAnnulationsTardives(tardives) {
+  if (!tardives.length) return '<p class="empty-msg" style="margin-top:8px">Aucune annulation tardive sur la période.</p>';
+  const sorted = [...tardives].sort((a, b) => (b.date + (b.creneau || '')).localeCompare(a.date + (a.creneau || '')));
+  return '<div class="emp-list" style="margin-top:8px">' + sorted.map(r =>
+    `<div class="emp-row">
+      <span class="emp-nom">${formatDateShort(r.date)} · ${esc(r.creneau || '')} · ${esc(r.clientNom || '')}${r.terrainId ? ' · ' + esc(_cfg.terrains?.[r.terrainId]?.nom || r.terrainId) : ''}${r.motifAnnulation ? ' — ' + esc(r.motifAnnulation) : ''}</span>
+      <span class="emp-ca" style="color:#ef6b6b">Tardive</span>
+    </div>`
+  ).join('') + '</div>';
 }
 
 function _renderEmpTable(empCA) {
@@ -318,6 +349,17 @@ function _exportCSV(type, dateDebut, dateFin, data) {
         // Montant signé : les ajustements (remboursements) sortent en négatif
         p.type === 'ajustement' ? -Math.abs(p.montant) : p.montant,
         p.motif || '', p.resaId
+      ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';'))
+    ];
+  } else if (type === 'annulations') {
+    lines = [
+      ['Date', 'Terrain', 'Créneau', 'Client', 'Montant FDJ', 'Tardive', 'Motif', 'Employé'].join(';'),
+      ...data.map(r => [
+        r.date,
+        _cfg.terrains?.[r.terrainId]?.nom || r.terrainId,
+        r.creneau, r.clientNom, r.montant,
+        r.annulationTardive ? 'OUI' : 'non',
+        r.motifAnnulation || '', r.employeNom
       ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';'))
     ];
   } else {
