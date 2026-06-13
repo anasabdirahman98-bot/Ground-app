@@ -3,7 +3,7 @@ import {
   setModesPaiement, setPolitiqueAnnulation, onUsers, addJournalEntry,
   createReservation, createClient
 } from './db.js';
-import { onMatchsOuverts, confirmerMatchOuvert, annulerMatchOuvert, deleteMatchOuvert } from './communaute-db.js';
+import { onMatchsOuverts, confirmerMatchOuvert, annulerMatchOuvert, deleteMatchOuvert, getJoueurPrive } from './communaute-db.js';
 import { createEmployee, toggleEmployeeActive } from './auth.js';
 import { todayDate, showToast, generateSlots, getTarif, formatFDJ } from './utils.js';
 
@@ -469,8 +469,10 @@ function _renderComList() {
       <div class="com-card-parts">
         ${parts.map(([,p]) => `<span class="com-part">${esc(p.nom||'—')}</span>`).join('')}
       </div>
+      <div class="com-card-contacts" id="cc-${m.id}" hidden style="margin-top:var(--sp-2)"></div>
       <div class="com-card-actions">
         ${canConfirm ? `<button class="btn btn-sm btn-secondary com-confirm" data-id="${m.id}">✓ Confirmer</button>` : ''}
+        ${parts.length ? `<button class="btn btn-sm btn-ghost com-contacts" data-id="${m.id}">Contacts</button>` : ''}
         ${m.statut !== 'confirme' ? `<button class="btn btn-sm btn-ghost com-annuler" data-id="${m.id}">Annuler</button>` : ''}
         <button class="btn btn-sm btn-danger com-supprimer" data-id="${m.id}">Supprimer</button>
       </div>
@@ -479,6 +481,34 @@ function _renderComList() {
 
   el.querySelectorAll('.com-confirm').forEach(b => {
     b.onclick = () => _openConfirmMatchForm(b.dataset.id);
+  });
+  el.querySelectorAll('.com-contacts').forEach(b => {
+    b.onclick = async () => {
+      const id = b.dataset.id;
+      const cont = document.getElementById(`cc-${id}`);
+      if (!cont) return;
+      if (!cont.hidden) { cont.hidden = true; b.textContent = 'Contacts'; return; }
+      b.disabled = true;
+      const m = _comMatchs.find(x => x.id === id);
+      const parts = Object.entries(m?.participants || {});
+      const rows = await Promise.all(parts.map(async ([uid, p]) => {
+        let tel = p.telephone;
+        if (!tel) { try { tel = (await getJoueurPrive(uid))?.telephone; } catch (_) {} }
+        return { nom: p.nom || '—', tel: tel || '' };
+      }));
+      cont.innerHTML = rows.map(({ nom, tel }) => {
+        const wa = _waComLink(tel, nom, m);
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+          <span style="flex:1">${esc(nom)}</span>
+          ${tel
+            ? `<span style="color:var(--texte-2);font-size:.85rem">${esc(tel)}</span><a href="${wa}" target="_blank" rel="noopener" style="background:#25D366;color:#fff;padding:3px 8px;border-radius:6px;font-size:.75rem;font-weight:600;text-decoration:none">WA</a>`
+            : '<span style="color:var(--texte-2);font-size:.8rem">— pas de numéro</span>'}
+        </div>`;
+      }).join('');
+      cont.hidden = false;
+      b.disabled = false;
+      b.textContent = 'Masquer contacts';
+    };
   });
   el.querySelectorAll('.com-annuler').forEach(b => {
     b.onclick = async () => {
@@ -579,6 +609,21 @@ function _openConfirmMatchForm(matchId) {
       $('cm-err').textContent = err.message; $('cm-err').hidden = false; btn.disabled = false;
     }
   };
+}
+
+function _waComLink(tel, nom, m) {
+  const d = (tel || '').replace(/\D/g, '');
+  if (!d) return '#';
+  const phone = d.length === 8 ? '253' + d : d;
+  const titre = m?.titre ? `« ${m.titre} »` : 'votre match';
+  let msg = `Bonjour ${nom}, à propos de ${titre}`;
+  if (m?.statut === 'confirme' && m?.reservationDate) {
+    const terrain = _cfg.terrains?.[m.terrainId]?.nom || '';
+    msg += ` : il est confirmé ${terrain ? 'sur ' + terrain + ' ' : ''}${m.creneau || ''} le ${m.reservationDate}.`;
+  } else {
+    msg += '.';
+  }
+  return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
 }
 
 async function _log(action, details) {
