@@ -13,6 +13,9 @@ import {
 import {
   init as initEvt, destroy as destroyEvt, getBlockedSlot, openEvtDetail
 } from './evenements.js';
+import {
+  attachWaitlist, offerNotifyNext, destroy as destroyWaitlist
+} from './waitlist.js';
 
 const $ = id => document.getElementById(id);
 
@@ -50,6 +53,7 @@ export function init(config, user) {
 export function destroy() {
   destroyRec();
   destroyEvt();
+  destroyWaitlist();
   _unsubs.forEach(fn => fn());
   _unsubs = [];
   _materializedDates.clear();
@@ -415,6 +419,9 @@ async function _openResaDetail(resa) {
 
   openSheet('resa-detail');
 
+  // Phase 4 — file d'attente sur ce créneau (bloc ajouté en bas de la fiche)
+  attachWaitlist(resa, _date, _user, terrain?.nom);
+
   if (canPay) $('da-pay').onclick = () => _openPaySheet(resa, solde);
 
   if (canCheckin) $('da-checkin').onclick = async () => {
@@ -574,6 +581,8 @@ async function _openCancelModal(resa) {
       });
       closeCancel();
       showToast('Réservation annulée.', 'info');
+      // Phase 4 — proposer de prévenir le premier de la file d'attente
+      offerNotifyNext(resa, _date, _user, _cfg.terrains?.[resa.terrainId]?.nom).catch(() => {});
     } catch (err) {
       $('cancel-err').textContent = err.message;
       $('cancel-err').hidden = false;

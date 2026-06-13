@@ -214,6 +214,34 @@ export function onJournalForDate(date, cb) {
   });
 }
 
+// ─── LISTE D'ATTENTE ─────────────────────────────────────────────────────────
+// Clé de slot identique au nœud slots : `${terrainId}_${creneau}`
+
+export function onWaitlistForSlot(date, slotKey, cb) {
+  return onValue(r(`waitlist/${date}/${slotKey}`), snap => {
+    const raw = snap.val() || {};
+    cb(Object.entries(raw).map(([id, v]) => ({ id, ...v }))
+      .sort((a, b) => a.createdAt - b.createdAt));
+  });
+}
+
+export async function getWaitlistForSlot(date, slotKey) {
+  const snap = await get(r(`waitlist/${date}/${slotKey}`));
+  const raw = snap.val() || {};
+  return Object.entries(raw).map(([id, v]) => ({ id, ...v }))
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export async function addToWaitlist(date, slotKey, data) {
+  const newRef = push(r(`waitlist/${date}/${slotKey}`));
+  await set(newRef, { ...data, createdAt: Date.now() });
+  return newRef.key;
+}
+
+export async function removeFromWaitlist(date, slotKey, id) {
+  await set(r(`waitlist/${date}/${slotKey}/${id}`), null);
+}
+
 // ─── RÉCURRENCES ─────────────────────────────────────────────────────────────
 
 export function onRecurrences(cb) {

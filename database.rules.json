@@ -79,6 +79,18 @@
       }
     },
 
+    "waitlist": {
+      "$date": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
+        "$slot": {
+          "$id": {
+            ".write": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
+            ".validate": "newData.hasChildren(['nom','employeId','createdAt'])"
+          }
+        }
+      }
+    },
+
     "journal": {
       "$date": {
         ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'gerant'",
