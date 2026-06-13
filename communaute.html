@@ -326,6 +326,7 @@ function _openNewMatchForm() {
       <div><label>Niveau</label><select id="nm-niveau"><option value="tout">Tous niveaux</option><option value="loisir">Loisir</option><option value="intermediaire">Intermédiaire</option><option value="competitive">Compétitif</option></select></div>
       <div><label>Date souhaitée</label><input id="nm-date" type="date" value="${today}"></div>
       <div><label>Heure (optionnel)</label><input id="nm-heure" type="time"></div>
+      <div><label>Terrain / lieu souhaité (optionnel)</label><input id="nm-terrain" type="text" placeholder="Ex. Terrain A" maxlength="40"></div>
       <div><label>Nombre de places *</label><input id="nm-places" type="number" min="2" max="22" value="10"></div>
       <div><label>Minimum pour confirmer</label><input id="nm-min" type="number" min="2" max="22" value="8"></div>
     </div>
@@ -339,7 +340,7 @@ function _openNewMatchForm() {
       if (min > places) { $('nm-err').textContent='Le minimum ne peut pas dépasser le nombre de places total.'; return; }
       $('nm-submit').disabled = true;
       try {
-        const newId = await createMatchOuvert({ titre:$('nm-titre').value.trim(), sport:$('nm-sport').value, niveau:$('nm-niveau').value, date:$('nm-date').value, heure:$('nm-heure').value||'', placesTotal:places, placesMin:min, terrainNom:'', createdBy:_user.uid, createdByNom:_profile?.nom||'' });
+        const newId = await createMatchOuvert({ titre:$('nm-titre').value.trim(), sport:$('nm-sport').value, niveau:$('nm-niveau').value, date:$('nm-date').value, heure:$('nm-heure').value||'', placesTotal:places, placesMin:min, terrainNom:$('nm-terrain').value.trim(), createdBy:_user.uid, createdByNom:_profile?.nom||'' });
         await joinMatch(newId, _user.uid, { nom: _profile?.nom||'' });
         _closeOverlay();
       } catch(e) { $('nm-err').textContent=e.message; $('nm-submit').disabled=false; }
