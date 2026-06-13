@@ -54,6 +54,11 @@
     .nav-btn.active { color: var(--accent); }
     .nav-icon { font-size: 1.3rem; line-height: 1; }
 
+    /* ── FILTER BAR ───────────────────────────────────────────────── */
+    .filter-bar { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3); flex-wrap: wrap; }
+    .filter-bar input[type="search"] { flex: 1 1 100%; padding: 9px 12px; font-size: .9rem; }
+    .filter-bar select { flex: 1; min-width: 0; padding: 9px 10px; font-size: .85rem; }
+
     /* ── CARDS ────────────────────────────────────────────────────── */
     .card-list { display: flex; flex-direction: column; gap: var(--sp-3); }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-4); }
@@ -165,6 +170,7 @@ const $ = id => document.getElementById(id);
 
 let _user = null, _profile = null, _matchs = [], _equipes = [];
 let _activeTab = 'matchs', _unsubs = [];
+let _mf = { sport:'', niveau:'', q:'' };
 
 // ── UTILS ──────────────────────────────────────────────────────────────────────
 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -239,18 +245,50 @@ function _closeOverlay() { $('overlay').hidden = true; }
 $('overlay').addEventListener('click', e => { if(e.target===$('overlay')) _closeOverlay(); });
 
 // ── MATCHS OUVERTS ────────────────────────────────────────────────────────────
+function _matchFilterFn(m) {
+  if (_mf.sport && m.sport !== _mf.sport) return false;
+  if (_mf.niveau && m.niveau !== _mf.niveau && m.niveau !== 'tout') return false;
+  if (_mf.q) {
+    const hay = `${m.titre||''} ${sportLabel(m.sport)} ${m.terrainNom||''} ${m.createdByNom||''}`.toLowerCase();
+    if (!hay.includes(_mf.q.toLowerCase())) return false;
+  }
+  return true;
+}
+
 function _renderMatchs(body) {
-  const actifs = _matchs.filter(m => (m.statut==='ouvert'||m.statut==='complet') && Object.keys(m.participants||{}).length > 0);
-  body.innerHTML = `<div class="row-hdr"><p class="sec-title">Matchs disponibles</p><button class="btn btn-primary btn-sm" id="btn-new-match">+ Nouveau</button></div>` +
-    (!actifs.length
-      ? `<div class="empty-state"><div class="empty-icon">⚽</div><p>Aucun match ouvert pour l'instant.</p><p style="margin-top:8px;font-size:.85rem">Soyez le premier à en créer un !</p></div>`
-      : `<div class="card-list">${actifs.map(_matchCard).join('')}</div>`
-    );
+  const base = _matchs.filter(m => (m.statut==='ouvert'||m.statut==='complet') && Object.keys(m.participants||{}).length > 0);
+  const header = `<div class="row-hdr"><p class="sec-title">Matchs disponibles</p><button class="btn btn-primary btn-sm" id="btn-new-match">+ Nouveau</button></div>`;
+  if (!base.length) {
+    body.innerHTML = header + `<div class="empty-state"><div class="empty-icon">⚽</div><p>Aucun match ouvert pour l'instant.</p><p style="margin-top:8px;font-size:.85rem">Soyez le premier à en créer un !</p></div>`;
+    $('btn-new-match').onclick = _openNewMatchForm;
+    return;
+  }
+  const sportOpt = (v,l) => `<option value="${v}" ${_mf.sport===v?'selected':''}>${l}</option>`;
+  const nivOpt   = (v,l) => `<option value="${v}" ${_mf.niveau===v?'selected':''}>${l}</option>`;
+  body.innerHTML = header + `
+    <div class="filter-bar">
+      <input id="mf-q" type="search" placeholder="Rechercher un match…" value="${esc(_mf.q)}">
+      <select id="mf-sport">${sportOpt('','Tous sports')}${sportOpt('foot5','Foot 5×5')}${sportOpt('foot7','Foot 7×7')}</select>
+      <select id="mf-niveau">${nivOpt('','Tous niveaux')}${nivOpt('loisir','Loisir')}${nivOpt('intermediaire','Intermédiaire')}${nivOpt('competitive','Compétitif')}</select>
+    </div>
+    <div id="matchs-list"></div>`;
   $('btn-new-match').onclick = _openNewMatchForm;
-  body.querySelectorAll('.btn-join').forEach(b => b.onclick = () => _joinMatch(b.dataset.id));
-  body.querySelectorAll('.btn-leave').forEach(b => b.onclick = () => _leaveMatch(b.dataset.id));
-  body.querySelectorAll('.btn-cancel-match').forEach(b => b.onclick = () => _cancelMatch(b.dataset.id));
-  body.querySelectorAll('.btn-detail').forEach(b => b.onclick = () => _openMatchDetail(b.dataset.id));
+
+  const renderList = () => {
+    const list = base.filter(_matchFilterFn);
+    const lc = $('matchs-list');
+    lc.innerHTML = !list.length
+      ? `<div class="empty-state"><div class="empty-icon">🔍</div><p>Aucun match ne correspond à votre recherche.</p></div>`
+      : `<div class="card-list">${list.map(_matchCard).join('')}</div>`;
+    lc.querySelectorAll('.btn-join').forEach(b => b.onclick = () => _joinMatch(b.dataset.id));
+    lc.querySelectorAll('.btn-leave').forEach(b => b.onclick = () => _leaveMatch(b.dataset.id));
+    lc.querySelectorAll('.btn-cancel-match').forEach(b => b.onclick = () => _cancelMatch(b.dataset.id));
+    lc.querySelectorAll('.btn-detail').forEach(b => b.onclick = () => _openMatchDetail(b.dataset.id));
+  };
+  $('mf-q').oninput = e => { _mf.q = e.target.value; renderList(); };
+  $('mf-sport').onchange = e => { _mf.sport = e.target.value; renderList(); };
+  $('mf-niveau').onchange = e => { _mf.niveau = e.target.value; renderList(); };
+  renderList();
 }
 
 function _matchCard(m) {
