@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Écran — Ground</title>
+  <style>
+    :root {
+      --bg: #0a0f0d;
+      --surface: #111815;
+      --surface2: #1a211e;
+      --border: #2a3530;
+      --text: #e8f0eb;
+      --text2: #7a9588;
+      --libre: #22c55e;
+      --libre-bg: rgba(34,197,94,.12);
+      --occupe: #ef4444;
+      --occupe-bg: rgba(239,68,68,.12);
+      --acompte: #f59e0b;
+      --acompte-bg: rgba(245,158,11,.12);
+      --evt: #818cf8;
+      --evt-bg: rgba(129,140,248,.12);
+      --accent: #86efac;
+      --r: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; overflow: hidden; }
+
+    /* ── AUTH SCREEN ─────────────────────────────────────────────── */
+    #auth-screen {
+      display: flex; align-items: center; justify-content: center;
+      height: 100vh;
+    }
+    .auth-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 40px 36px; width: 340px; display: flex; flex-direction: column; gap: 16px;
+    }
+    .auth-box h1 { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+    .auth-box label { font-size: .85rem; color: var(--text2); display: block; margin-bottom: 4px; }
+    .auth-box input {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 14px; color: var(--text); font: inherit; font-size: 1rem;
+    }
+    .auth-box input:focus { outline: 2px solid var(--accent); }
+    .auth-btn {
+      width: 100%; padding: 14px; border-radius: 8px; border: 0;
+      background: var(--accent); color: #0a0f0d; font: inherit; font-weight: 700;
+      font-size: 1rem; cursor: pointer;
+    }
+    .auth-btn:active { opacity: .85; }
+    .auth-err { font-size: .85rem; color: var(--occupe); min-height: 20px; }
+
+    /* ── DISPLAY SCREEN ──────────────────────────────────────────── */
+    #display-screen {
+      height: 100vh; display: flex; flex-direction: column;
+    }
+    #display-screen[hidden] { display: none; }
+
+    .ecran-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px; background: var(--surface); border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .ecran-logo { font-size: 1.2rem; font-weight: 800; color: var(--accent); }
+    .ecran-date { font-size: 1rem; color: var(--text2); }
+    .ecran-time { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ecran-status { font-size: .75rem; color: var(--text2); }
+
+    .ecran-body { flex: 1; overflow: auto; padding: 16px 24px 24px; }
+
+    /* ── GRID ─────────────────────────────────────────────────────── */
+    .ecran-grid {
+      display: grid;
+      gap: 6px;
+    }
+    .eg-corner { /* empty top-left */ }
+    .eg-th {
+      text-align: center; font-weight: 700; font-size: .95rem;
+      padding: 10px 8px; background: var(--surface2); border-radius: var(--r);
+      border: 1px solid var(--border);
+    }
+    .eg-th small { display: block; font-size: .75rem; font-weight: 400; color: var(--text2); }
+    .eg-time {
+      display: flex; align-items: center; font-size: .85rem; font-weight: 600;
+      color: var(--text2); padding-right: 8px;
+    }
+    .eg-cell {
+      border-radius: var(--r); border: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 10px 8px; min-height: 72px; text-align: center; gap: 4px; transition: none;
+    }
+    .eg-libre  { background: var(--libre-bg);  border-color: var(--libre); }
+    .eg-occupe { background: var(--occupe-bg); border-color: var(--occupe); }
+    .eg-acompte{ background: var(--acompte-bg);border-color: var(--acompte);}
+    .eg-evt    { background: var(--evt-bg);    border-color: var(--evt);   }
+
+    .eg-label  { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    .eg-libre   .eg-label  { color: var(--libre); }
+    .eg-occupe  .eg-label  { color: var(--occupe); }
+    .eg-acompte .eg-label  { color: var(--acompte); }
+    .eg-evt     .eg-label  { color: var(--evt); }
+
+    .eg-nom  { font-size: .9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .eg-tarif{ font-size: .75rem; color: var(--text2); }
+
+    /* ── LEGEND ───────────────────────────────────────────────────── */
+    .ecran-legend {
+      display: flex; gap: 20px; justify-content: center; padding: 10px 0 0;
+      font-size: .8rem; flex-shrink: 0;
+    }
+    .leg-item { display: flex; align-items: center; gap: 6px; }
+    .leg-dot  { width: 10px; height: 10px; border-radius: 50%; }
+
+    .ecran-msg { text-align: center; padding: 60px 20px; color: var(--text2); font-size: 1rem; }
+  </style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <h1>Écran d'affichage</h1>
+    <p style="font-size:.85rem;color:var(--text2)">Connectez-vous avec un compte employé pour démarrer l'écran.</p>
+    <div>
+      <label>Email</label>
+      <input id="ec-email" type="email" autocomplete="email" placeholder="employe@ground.dj">
+    </div>
+    <div>
+      <label>Mot de passe</label>
+      <input id="ec-pass" type="password" autocomplete="current-password">
+    </div>
+    <div id="ec-err" class="auth-err"></div>
+    <button class="auth-btn" id="ec-login">Démarrer l'écran</button>
+  </div>
+</div>
+
+<!-- DISPLAY -->
+<div id="display-screen" hidden>
+  <header class="ecran-header">
+    <span class="ecran-logo">Ground</span>
+    <span id="ec-date" class="ecran-date"></span>
+    <span id="ec-time" class="ecran-time"></span>
+    <span id="ec-status" class="ecran-status">●</span>
+  </header>
+  <div class="ecran-body">
+    <div id="ec-grid" class="ecran-grid"></div>
+  </div>
+  <footer class="ecran-legend">
+    <span class="leg-item"><span class="leg-dot" style="background:var(--libre)"></span>Disponible</span>
+    <span class="leg-item"><span class="leg-dot" style="background:var(--occupe)"></span>Réservé</span>
+    <span class="leg-item"><span class="leg-dot" style="background:var(--acompte)"></span>Acompte</span>
+    <span class="leg-item"><span class="leg-dot" style="background:var(--evt)"></span>Événement</span>
+  </footer>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {
+  getDatabase, ref, onValue, get
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+import { firebaseConfig } from './js/firebase-config.js';
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getDatabase(app);
+
+const $ = id => document.getElementById(id);
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+
+function todayDate() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function formatFDJ(n) {
+  return new Intl.NumberFormat('fr-DJ', { style: 'currency', currency: 'DJF', minimumFractionDigits: 0 }).format(n || 0);
+}
+
+function generateSlots(ouv, ferm, duree) {
+  const slots = [];
+  const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+  let cur = toMin(ouv);
+  const end = ferm === '00:00' ? 24*60 : toMin(ferm);
+  while (cur + duree <= end) {
+    const h = String(Math.floor(cur/60)).padStart(2,'0');
+    const m = String(cur%60).padStart(2,'0');
+    const e = cur + duree;
+    const eh = String(Math.floor(e/60)%24).padStart(2,'0');
+    const em = String(e%60).padStart(2,'0');
+    slots.push(`${h}:${m}-${eh}:${em}`);
+    cur += duree;
+  }
+  return slots;
+}
+
+function getTarif(tid, slot, tarifs) {
+  const t = tarifs?.[tid];
+  if (!t) return 0;
+  const heureSoir = t.heureSoir || '17:00';
+  const slotH = parseInt(slot.split(':')[0], 10);
+  const soirH = parseInt(heureSoir.split(':')[0], 10);
+  return slotH >= soirH ? (t.soir || 0) : (t.jour || 0);
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function dateFR(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+
+let _cfg = {};
+let _resas = [];
+let _evts = [];
+let _date = todayDate();
+let _unsubs = [];
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────────
+
+function _updateClock() {
+  const now = new Date();
+  $('ec-time').textContent = now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+  const newDate = todayDate();
+  if (newDate !== _date) { _date = newDate; _subscribe(); }
+  $('ec-date').textContent = dateFR(_date);
+}
+
+setInterval(_updateClock, 10_000);
+_updateClock();
+
+// ── SUBSCRIPTIONS ─────────────────────────────────────────────────────────────
+
+function _unsubAll() { _unsubs.forEach(fn => fn()); _unsubs = []; }
+
+function _subscribe() {
+  _unsubAll();
+  _unsubs.push(onValue(ref(db, 'config'), snap => {
+    _cfg = snap.val() || {};
+    _render();
+  }));
+  _unsubs.push(onValue(ref(db, `reservations/${_date}`), snap => {
+    const raw = snap.val() || {};
+    _resas = Object.entries(raw).map(([id, v]) => ({ id, ...v }));
+    _render();
+  }));
+  _unsubs.push(onValue(ref(db, 'evenements'), snap => {
+    const raw = snap.val() || {};
+    _evts = Object.entries(raw).map(([id, v]) => ({ id, ...v }));
+    _render();
+  }));
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+
+function _isSlotBlockedByEvt(date, tid, slot) {
+  return _evts.find(evt => {
+    if (evt.statut === 'annule') return false;
+    if (evt.terrainId !== tid) return false;
+    if (date < evt.dateDebut || date > (evt.dateFin || evt.dateDebut)) return false;
+    const creneaux = evt.creneaux || [];
+    return creneaux.includes(slot);
+  }) || null;
+}
+
+function _render() {
+  const grid = $('ec-grid');
+  if (!grid) return;
+
+  const { terrains = {}, horaires = {}, tarifs = {} } = _cfg;
+  const active = Object.entries(terrains)
+    .filter(([, t]) => t.actif !== false)
+    .sort(([, a], [, b]) => (a.ordre || 99) - (b.ordre || 99));
+
+  if (!active.length || !horaires.ouverture) {
+    grid.innerHTML = '<p class="ecran-msg">Configuration en cours…</p>';
+    return;
+  }
+
+  const slots = generateSlots(horaires.ouverture, horaires.fermeture, horaires.dureeCreneauMin || 60);
+  const resaMap = {};
+  _resas.forEach(r => {
+    if (r.statut !== 'annulee') resaMap[`${r.terrainId}_${r.creneau}`] = r;
+  });
+
+  const cols = active.length + 1;
+  grid.style.gridTemplateColumns = `64px repeat(${active.length}, 1fr)`;
+
+  let html = '<div class="eg-corner"></div>';
+  active.forEach(([, t]) => {
+    html += `<div class="eg-th">${esc(t.nom)}<small>${t.type === 'foot5' ? '5×5' : '7×7'}</small></div>`;
+  });
+
+  slots.forEach(slot => {
+    html += `<div class="eg-time">${slot}</div>`;
+    active.forEach(([tid]) => {
+      const resa = resaMap[`${tid}_${slot}`];
+      const evt  = !resa ? _isSlotBlockedByEvt(_date, tid, slot) : null;
+      if (evt) {
+        html += `<div class="eg-cell eg-evt">
+          <span class="eg-label">Événement</span>
+          <span class="eg-nom">${esc(evt.nom)}</span>
+        </div>`;
+      } else if (!resa) {
+        const tarif = getTarif(tid, slot, tarifs);
+        html += `<div class="eg-cell eg-libre">
+          <span class="eg-label">Disponible</span>
+          ${tarif ? `<span class="eg-tarif">${formatFDJ(tarif)}</span>` : ''}
+        </div>`;
+      } else {
+        const isAcompte = resa.statutPaiement === 'acompte';
+        html += `<div class="eg-cell ${isAcompte ? 'eg-acompte' : 'eg-occupe'}">
+          <span class="eg-label">${isAcompte ? 'Acompte' : 'Réservé'}</span>
+          <span class="eg-nom">${esc(resa.clientNom || '—')}</span>
+        </div>`;
+      }
+    });
+  });
+
+  grid.innerHTML = html;
+  $('ec-status').textContent = '● En direct';
+  $('ec-status').style.color = '#22c55e';
+}
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    $('auth-screen').style.display = 'flex';
+    $('display-screen').hidden = true;
+    return;
+  }
+  // Vérifier que le compte est actif dans /users
+  try {
+    const snap = await get(ref(db, `users/${user.uid}/actif`));
+    if (snap.val() !== true) {
+      $('ec-err').textContent = 'Compte désactivé.';
+      await auth.signOut();
+      return;
+    }
+  } catch (_) {}
+
+  $('auth-screen').style.display = 'none';
+  $('display-screen').hidden = false;
+  _subscribe();
+});
+
+$('ec-login').onclick = async () => {
+  const email = $('ec-email').value.trim();
+  const pass  = $('ec-pass').value;
+  $('ec-err').textContent = '';
+  $('ec-login').disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    const msgs = { 'auth/invalid-credential': 'Email ou mot de passe incorrect.', 'auth/user-not-found': 'Compte introuvable.', 'auth/wrong-password': 'Mot de passe incorrect.', 'auth/too-many-requests': 'Trop de tentatives. Réessayez plus tard.' };
+    $('ec-err').textContent = msgs[err.code] || err.message;
+    $('ec-login').disabled = false;
+  }
+};
+
+$('ec-pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('ec-login').click(); });
+</script>
+</body>
+</html>

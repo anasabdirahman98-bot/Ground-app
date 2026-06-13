@@ -521,6 +521,20 @@ async function _openCancelModal(resa) {
       .reduce((s, p) => s + (p.type === 'ajustement' ? -Math.abs(p.montant) : p.montant), 0);
   } catch (_) {}
 
+  // B3 — annulation tardive
+  const _delai = _cfg.politiqueAnnulation?.delaiGratuit ?? 0;
+  let isTardive = false;
+  if (_delai > 0) {
+    const _heure = (resa.creneau || '').split('-')[0];
+    const _dt = new Date(`${_date}T${_heure}:00`);
+    isTardive = (_dt - Date.now()) / 3_600_000 < _delai;
+  }
+  const _tardiveEl = $('cancel-tardive');
+  if (_tardiveEl) {
+    _tardiveEl.textContent = `⚠ Annulation tardive — délai gratuit de ${_delai}h dépassé.`;
+    _tardiveEl.hidden = !isTardive;
+  }
+
   // Show refund option if reservation was paid
   const refundRow = $('cancel-refund-row');
   if (refundRow) {
@@ -554,7 +568,7 @@ async function _openCancelModal(resa) {
     }
     $('cancel-confirm').disabled = true;
     try {
-      await cancelReservation(_date, resa.id, motif, resa);
+      await cancelReservation(_date, resa.id, motif, resa, isTardive);
       if (resa.recurrenceId) {
         await addRecurrenceException(resa.recurrenceId, _date);
       }
