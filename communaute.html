@@ -330,7 +330,8 @@ function _openNewMatchForm() {
       if (!places||places<2) { $('nm-err').textContent='Nombre de places invalide.'; return; }
       $('nm-submit').disabled = true;
       try {
-        await createMatchOuvert({ titre:$('nm-titre').value.trim(), sport:$('nm-sport').value, niveau:$('nm-niveau').value, date:$('nm-date').value, heure:$('nm-heure').value||'', placesTotal:places, placesMin:parseInt($('nm-min').value,10)||places, terrainNom:'', createdBy:_user.uid, createdByNom:_profile?.nom||'' });
+        const newId = await createMatchOuvert({ titre:$('nm-titre').value.trim(), sport:$('nm-sport').value, niveau:$('nm-niveau').value, date:$('nm-date').value, heure:$('nm-heure').value||'', placesTotal:places, placesMin:parseInt($('nm-min').value,10)||places, terrainNom:'', createdBy:_user.uid, createdByNom:_profile?.nom||'' });
+        await joinMatch(newId, _user.uid, { nom: _profile?.nom||'' });
         _closeOverlay();
       } catch(e) { $('nm-err').textContent=e.message; $('nm-submit').disabled=false; }
     };
@@ -339,7 +340,7 @@ function _openNewMatchForm() {
 
 // ── MES MATCHS ─────────────────────────────────────────────────────────────────
 function _renderMesMatchs(body) {
-  const mes = _matchs.filter(m => !!(m.participants||{})[_user?.uid]);
+  const mes = _matchs.filter(m => !!(m.participants||{})[_user?.uid] || m.createdBy === _user?.uid);
   body.innerHTML = `<p class="sec-title">Mes inscriptions</p>` +
     (!mes.length
       ? `<div class="empty-state"><div class="empty-icon">📋</div><p>Vous n'êtes inscrit à aucun match.</p></div>`

@@ -468,7 +468,6 @@ function _renderComList() {
       <div class="com-card-actions">
         ${canConfirm ? `<button class="btn btn-sm btn-secondary com-confirm" data-id="${m.id}">✓ Confirmer</button>` : ''}
         ${m.statut !== 'confirme' ? `<button class="btn btn-sm btn-ghost com-annuler" data-id="${m.id}">Annuler</button>` : ''}
-        ${m.date ? `<a class="btn btn-sm btn-secondary" href="/?date=${m.date}" style="text-decoration:none">Voir planning</a>` : ''}
       </div>
     </div>`;
   }).join('') + '</div>';
