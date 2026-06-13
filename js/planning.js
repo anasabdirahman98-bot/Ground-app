@@ -1,6 +1,6 @@
 import {
   onReservationsForDate, createReservation, updateReservation,
-  cancelReservation, createPaiement, getPaiementsForDate,
+  cancelReservation, createPaiement, getPaiementsForDate, getCloture,
   onClients, createClient, addJournalEntry, addRecurrenceException
 } from './db.js';
 import {
@@ -63,14 +63,22 @@ function _bindDateNav() {
   const picker = $('date-picker');
   $('date-current').onclick = () => picker.showPicker ? picker.showPicker() : picker.click();
   picker.onchange = e => { if (e.target.value) _loadDate(e.target.value); };
+  $('date-today').onclick = () => _loadDate(todayDate());
   $('btn-recurrences').onclick = () => openSheet('recurrences');
   $('btn-evenements').onclick = () => openSheet('evenements');
+}
+
+// Navigation externe (ex. depuis l'onglet Impayés)
+export function gotoDate(date) {
+  _loadDate(date);
 }
 
 function _loadDate(date) {
   _date = date;
   $('date-label').textContent = formatDate(date);
   $('date-picker').value = date;
+  const todayBtn = $('date-today');
+  if (todayBtn) todayBtn.hidden = date === todayDate();
 
   const prev = _unsubs.find(fn => fn._key === 'resas');
   if (prev) { prev(); _unsubs = _unsubs.filter(fn => fn._key !== 'resas'); }
@@ -301,6 +309,7 @@ async function _submitResaForm() {
   btn.textContent = 'En cours…';
 
   try {
+    if (statutPaiement !== 'a_payer' && !(await _confirmIfCloturee(_date))) return;
     const resaId = await createReservation(_date, {
       terrainId: _fCtx.tid,
       creneau: _fCtx.slot,
@@ -356,9 +365,10 @@ async function _openResaDetail(resa) {
   const statLabel = statutLabel(resa.statut, resa.statutPaiement);
   const client = _clients.find(c => c.id === resa.clientId);
   const waPhone = _waPhone(client?.telephone);
+  const waDate = formatDate(_date).replace(/Aujourd'hui · /, '');
   const waText = waPhone ? encodeURIComponent(
     `Bonjour ${resa.clientNom} ! Rappel réservation :\n` +
-    `${terrain?.nom || resa.terrainId} · ${resa.creneau} · ${_date}\n` +
+    `${terrain?.nom || resa.terrainId} · ${resa.creneau} · ${waDate}\n` +
     `Montant : ${formatFDJ(resa.montant)}`
   ) : '';
 
@@ -430,6 +440,16 @@ async function _openResaDetail(resa) {
 
 // ─── PAYMENT SHEET ───────────────────────────────────────────────────────────
 
+// Garde-fou : la caisse de cette date est-elle déjà clôturée ?
+// Retourne true si on peut encaisser (pas de clôture, ou confirmation explicite).
+async function _confirmIfCloturee(date, message) {
+  let cl = null;
+  try { cl = await getCloture(date); } catch (_) { return true; }
+  if (!cl) return true;
+  return confirm(message ||
+    '⚠ La caisse de cette journée est déjà clôturée.\nEnregistrer quand même cet encaissement ? L\'écart de clôture ne correspondra plus.');
+}
+
 function _openPaySheet(resa, solde) {
   closeSheet('resa-detail');
   _fillModeSelect('payment-mode');
@@ -453,6 +473,7 @@ function _openPaySheet(resa, solde) {
     const btn = $('payment-form').querySelector('[type="submit"]');
     btn.disabled = true;
     try {
+      if (!(await _confirmIfCloturee(_date))) return;
       await createPaiement(_date, {
         resaId: resa.id, montant, mode,
         type: 'paiement', motif: null,
@@ -480,17 +501,26 @@ function _openPaySheet(resa, solde) {
 
 // ─── CANCEL MODAL ────────────────────────────────────────────────────────────
 
-function _openCancelModal(resa) {
+async function _openCancelModal(resa) {
   $('cancel-motif').value = '';
   $('cancel-err').hidden = true;
+
+  // Montant réellement payé, recalculé depuis les paiements (le champ
+  // totalPaye de la résa peut être périmé si un encaissement vient d'avoir lieu)
+  let paid = resa.totalPaye || 0;
+  try {
+    const paiements = await getPaiementsForDate(_date);
+    paid = paiements.filter(p => p.resaId === resa.id)
+      .reduce((s, p) => s + (p.type === 'ajustement' ? -Math.abs(p.montant) : p.montant), 0);
+  } catch (_) {}
 
   // Show refund option if reservation was paid
   const refundRow = $('cancel-refund-row');
   if (refundRow) {
-    if ((resa.totalPaye || 0) > 0) {
+    if (paid > 0) {
       refundRow.hidden = false;
       $('cancel-refund-label').textContent =
-        `Rembourser ${formatFDJ(resa.totalPaye)} (annulation)`;
+        `Rembourser ${formatFDJ(paid)} (annulation)`;
       $('cancel-refund-check').checked = true;
       _fillModeSelect('cancel-refund-mode');
     } else {
@@ -522,17 +552,21 @@ function _openCancelModal(resa) {
         await addRecurrenceException(resa.recurrenceId, _date);
       }
       // Créer un ajustement négatif si remboursement coché
-      if ($('cancel-refund-check')?.checked && (resa.totalPaye || 0) > 0) {
-        const mode = $('cancel-refund-mode')?.value || 'especes';
-        await createPaiement(_date, {
-          resaId: resa.id,
-          montant: resa.totalPaye,
-          mode,
-          type: 'ajustement',
-          motif: `Remboursement — ${motif}`,
-          employeId: _user.uid,
-          employeNom: _user.nom
-        });
+      if ($('cancel-refund-check')?.checked && paid > 0) {
+        const okCloture = await _confirmIfCloturee(_date,
+          '⚠ La caisse de cette journée est déjà clôturée.\nEnregistrer quand même le remboursement ?\n(Sinon la réservation sera annulée sans remboursement.)');
+        if (okCloture) {
+          const mode = $('cancel-refund-mode')?.value || 'especes';
+          await createPaiement(_date, {
+            resaId: resa.id,
+            montant: paid,
+            mode,
+            type: 'ajustement',
+            motif: `Remboursement — ${motif}`,
+            employeId: _user.uid,
+            employeNom: _user.nom
+          });
+        }
       }
       await addJournalEntry(_date, {
         action: 'annulation', userId: _user.uid, userNom: _user.nom,

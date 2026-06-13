@@ -52,7 +52,7 @@
         ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
         "$paiementId": {
           ".write": "auth != null && !data.exists() && newData.child('employeId').val() === auth.uid",
-          ".validate": "newData.hasChildren(['resaId','montant','mode','type','employeId','employeNom','timestamp'])"
+          ".validate": "newData.hasChildren(['resaId','montant','mode','type','employeId','employeNom','timestamp']) && newData.child('montant').isNumber() && newData.child('montant').val() > 0"
         }
       }
     },
@@ -68,14 +68,14 @@
     "evenements": {
       ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
       "$evtId": {
-        ".write": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true"
+        ".write": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true && (newData.exists() || root.child('users').child(auth.uid).child('role').val() === 'gerant')"
       }
     },
 
     "recurrences": {
       ".read": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true",
       "$recId": {
-        ".write": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true"
+        ".write": "auth != null && root.child('users').child(auth.uid).child('actif').val() === true && (newData.exists() || root.child('users').child(auth.uid).child('role').val() === 'gerant')"
       }
     },
 

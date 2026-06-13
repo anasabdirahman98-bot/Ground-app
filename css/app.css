@@ -687,7 +687,8 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 .hc-confirmee { color: var(--texte-2); }
 .hc-terminee { color: var(--paye); }
 .hc-annulee { color: var(--danger); }
-.unpaid-card { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.unpaid-card { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.unpaid-card:active { background: var(--surface-2); }
 .uc-top { display: flex; justify-content: space-between; font-weight: 600; }
 .uc-solde { color: var(--a-payer); font-family: var(--font-title); }
 .uc-meta { font-size: .8rem; color: var(--texte-2); margin-top: 2px; }
@@ -954,6 +955,11 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 .eq-nom { font-weight: 600; font-size: .9rem; }
 .eq-tel { font-size: .78rem; color: var(--texte-2); }
 .eq-pay { flex-shrink: 0; white-space: nowrap; }
+.eq-pay-confirm { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+.eq-mode-sel {
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  color: var(--texte); font-size: .82rem; padding: 6px 8px; max-width: 110px;
+}
 .equipe-form { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
 
 /* ─── CLÔTURES HISTORY ──────────────────────────────────────────────────────── */

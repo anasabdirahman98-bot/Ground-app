@@ -77,6 +77,12 @@
         <button class="btn-icon" id="date-next" aria-label="Jour suivant">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
+        <button class="btn-icon" id="date-today" aria-label="Revenir à aujourd'hui" title="Aujourd'hui" hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            <circle cx="12" cy="16" r="2.2" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
         <button class="btn-icon" id="btn-recurrences" aria-label="Réservations récurrentes" title="Récurrences">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
@@ -498,6 +504,7 @@
 <script type="module">
   import { onUserChange, login, logout, getCurrentUser, getCurrentUserData } from './js/auth.js';
   import { onConnected, getConfig, onConfig } from './js/db.js';
+  import { todayDate } from './js/utils.js';
   import { init as initPlanning, destroy as destroyPlanning } from './js/planning.js';
   import { init as initCaisse, destroy as destroyCaisse } from './js/caisse.js';
   import { init as initClients, destroy as destroyClients } from './js/clients.js';
@@ -652,6 +659,30 @@
         break;
     }
   }
+
+  // ─── BASCULE DE DATE À MINUIT ─────────────────────────────────────────────
+  // L'app reste souvent ouverte toute la soirée (fermeture 00:00) : sans ce
+  // contrôle, caisse et dashboard resteraient figés sur la veille après minuit.
+
+  let _appDate = todayDate();
+
+  function _checkDateRollover() {
+    const now = todayDate();
+    if (now === _appDate) return;
+    _appDate = now;
+    const user = getCurrentUser();
+    const userData = getCurrentUserData();
+    if (user && userData) {
+      _destroyCurrentView();
+      _initView(_currentView, user, userData, false);
+    }
+  }
+
+  setInterval(_checkDateRollover, 60 * 1000);
+  // Aussi au retour sur l'app (tablette sortie de veille)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) _checkDateRollover();
+  });
 
   // Service worker
   if ('serviceWorker' in navigator) {

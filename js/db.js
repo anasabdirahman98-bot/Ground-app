@@ -127,15 +127,21 @@ export async function createReservation(date, data) {
     throw new Error('Créneau déjà pris. Actualisez la grille.');
   }
 
-  await set(resaRef, {
-    ...data,
-    totalPaye: data.totalPaye ?? 0,
-    statut: 'confirmee',
-    motifAnnulation: null,
-    recurrenceId: null,
-    createdAt: Date.now(),
-    updatedAt: Date.now()
-  });
+  try {
+    await set(resaRef, {
+      ...data,
+      totalPaye: data.totalPaye ?? 0,
+      statut: 'confirmee',
+      motifAnnulation: null,
+      recurrenceId: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    });
+  } catch (err) {
+    // Libérer le slot sinon le créneau resterait verrouillé par une résa fantôme
+    await set(slotRef, null).catch(() => {});
+    throw err;
+  }
 
   return resaId;
 }
@@ -269,37 +275,39 @@ function _nextDate(dateStr) {
   return dt.toLocaleDateString('en-CA');
 }
 
-export async function getPaiementsForPeriod(dateDebut, dateFin) {
-  const results = [];
+function _datesBetween(dateDebut, dateFin) {
+  const dates = [];
   let cur = dateDebut;
-  while (cur <= dateFin) {
-    const snap = await get(r(`paiements/${cur}`));
-    const raw = snap.val() || {};
-    Object.entries(raw).forEach(([id, v]) => results.push({ id, date: cur, ...v }));
-    cur = _nextDate(cur);
-  }
+  while (cur <= dateFin) { dates.push(cur); cur = _nextDate(cur); }
+  return dates;
+}
+
+// Requêtes parallèles : une par jour, toutes lancées en même temps
+async function _getNodeForPeriod(node, dateDebut, dateFin) {
+  const dates = _datesBetween(dateDebut, dateFin);
+  const snaps = await Promise.all(dates.map(d => get(r(`${node}/${d}`))));
+  return dates.map((date, i) => ({ date, val: snaps[i].val() }));
+}
+
+export async function getPaiementsForPeriod(dateDebut, dateFin) {
+  const days = await _getNodeForPeriod('paiements', dateDebut, dateFin);
+  const results = [];
+  days.forEach(({ date, val }) => {
+    Object.entries(val || {}).forEach(([id, v]) => results.push({ id, date, ...v }));
+  });
   return results;
 }
 
 export async function getReservationsForPeriod(dateDebut, dateFin) {
+  const days = await _getNodeForPeriod('reservations', dateDebut, dateFin);
   const results = [];
-  let cur = dateDebut;
-  while (cur <= dateFin) {
-    const snap = await get(r(`reservations/${cur}`));
-    const raw = snap.val() || {};
-    Object.entries(raw).forEach(([id, v]) => results.push({ id, date: cur, ...v }));
-    cur = _nextDate(cur);
-  }
+  days.forEach(({ date, val }) => {
+    Object.entries(val || {}).forEach(([id, v]) => results.push({ id, date, ...v }));
+  });
   return results;
 }
 
 export async function getCloturesForPeriod(dateDebut, dateFin) {
-  const results = [];
-  let cur = dateDebut;
-  while (cur <= dateFin) {
-    const snap = await get(r(`clotures/${cur}`));
-    if (snap.val()) results.push({ date: cur, ...snap.val() });
-    cur = _nextDate(cur);
-  }
-  return results;
+  const days = await _getNodeForPeriod('clotures', dateDebut, dateFin);
+  return days.filter(({ val }) => val).map(({ date, val }) => ({ date, ...val }));
 }
