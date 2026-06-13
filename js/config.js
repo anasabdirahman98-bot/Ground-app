@@ -1,6 +1,6 @@
 import {
   getConfig, setComplexe, setTerrain, setHoraires, setTarif,
-  setModesPaiement, onUsers, addJournalEntry
+  setModesPaiement, setPolitiqueAnnulation, onUsers, addJournalEntry
 } from './db.js';
 import { createEmployee, toggleEmployeeActive } from './auth.js';
 import { todayDate, showToast } from './utils.js';
@@ -293,6 +293,37 @@ function _renderHoraires() {
       showToast('Modes de paiement enregistrés.', 'success');
     } catch (err) {
       $('mo-err').textContent = err.message; $('mo-err').hidden = false;
+    } finally { btn.disabled = false; }
+  };
+
+  // B3 — politique d'annulation
+  const pol = _cfg.politiqueAnnulation || {};
+  $('config-body').insertAdjacentHTML('beforeend', `
+    <h2 class="cfg-title mt-6">Politique d'annulation</h2>
+    <form id="form-politique">
+      <div class="field">
+        <label>Délai d'annulation gratuite (heures)</label>
+        <input id="pa-delai" type="number" min="0" step="1" value="${pol.delaiGratuit ?? 24}" style="width:120px">
+        <p class="field-hint">0 = toujours gratuit. Au-delà du délai, l'annulation est signalée comme tardive.</p>
+      </div>
+      <div id="pa-err" class="error-msg" hidden></div>
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+    </form>`);
+
+  $('form-politique').onsubmit = async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('[type="submit"]');
+    btn.disabled = true;
+    try {
+      const delai = parseInt($('pa-delai').value, 10);
+      if (isNaN(delai) || delai < 0) throw new Error('Valeur invalide.');
+      await setPolitiqueAnnulation({ delaiGratuit: delai });
+      if (!_cfg.politiqueAnnulation) _cfg.politiqueAnnulation = {};
+      _cfg.politiqueAnnulation.delaiGratuit = delai;
+      await _log('config_modifie', `Politique annulation : délai ${delai}h`);
+      showToast('Politique d\'annulation enregistrée.', 'success');
+    } catch (err) {
+      $('pa-err').textContent = err.message; $('pa-err').hidden = false;
     } finally { btn.disabled = false; }
   };
 }

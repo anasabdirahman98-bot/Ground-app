@@ -49,6 +49,10 @@ export async function setModesPaiement(modes) {
   await set(r('config/modesPaiement'), modes);
 }
 
+export async function setPolitiqueAnnulation(data) {
+  await update(r('config/politiqueAnnulation'), data);
+}
+
 // ─── UTILISATEURS ────────────────────────────────────────────────────────────
 
 export async function getUser(uid) {
@@ -150,12 +154,10 @@ export async function updateReservation(date, id, updates) {
   await update(r(`reservations/${date}/${id}`), { ...updates, updatedAt: Date.now() });
 }
 
-export async function cancelReservation(date, id, motif, resa) {
-  await update(r(`reservations/${date}/${id}`), {
-    statut: 'annulee',
-    motifAnnulation: motif,
-    updatedAt: Date.now()
-  });
+export async function cancelReservation(date, id, motif, resa, tardive = false) {
+  const updates = { statut: 'annulee', motifAnnulation: motif, updatedAt: Date.now() };
+  if (tardive) updates.annulationTardive = true;
+  await update(r(`reservations/${date}/${id}`), updates);
   await set(r(`slots/${date}/${resa.terrainId}_${resa.creneau}`), null);
 }
 
