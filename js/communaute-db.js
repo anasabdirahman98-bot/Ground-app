@@ -94,3 +94,6 @@ export async function confirmerMatchOuvert(matchId) {
 export async function annulerMatchOuvert(matchId) {
   await update(r(`matchsOuverts/${matchId}`), { statut: 'annule' });
 }
+export async function deleteMatchOuvert(matchId) {
+  await remove(r(`matchsOuverts/${matchId}`));
+}

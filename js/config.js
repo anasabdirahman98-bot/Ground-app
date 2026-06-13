@@ -2,7 +2,7 @@ import {
   getConfig, setComplexe, setTerrain, setHoraires, setTarif,
   setModesPaiement, setPolitiqueAnnulation, onUsers, addJournalEntry
 } from './db.js';
-import { onMatchsOuverts, confirmerMatchOuvert, annulerMatchOuvert } from './communaute-db.js';
+import { onMatchsOuverts, confirmerMatchOuvert, annulerMatchOuvert, deleteMatchOuvert } from './communaute-db.js';
 import { createEmployee, toggleEmployeeActive } from './auth.js';
 import { todayDate, showToast } from './utils.js';
 
@@ -468,6 +468,7 @@ function _renderComList() {
       <div class="com-card-actions">
         ${canConfirm ? `<button class="btn btn-sm btn-secondary com-confirm" data-id="${m.id}">✓ Confirmer</button>` : ''}
         ${m.statut !== 'confirme' ? `<button class="btn btn-sm btn-ghost com-annuler" data-id="${m.id}">Annuler</button>` : ''}
+        <button class="btn btn-sm btn-danger com-supprimer" data-id="${m.id}">Supprimer</button>
       </div>
     </div>`;
   }).join('') + '</div>';
@@ -493,6 +494,20 @@ function _renderComList() {
       try {
         await annulerMatchOuvert(b.dataset.id);
         showToast('Match annulé.', 'info');
+      } catch (err) {
+        showToast(err.message, 'error');
+        b.disabled = false;
+      }
+    };
+  });
+  el.querySelectorAll('.com-supprimer').forEach(b => {
+    b.onclick = async () => {
+      if (!confirm('Supprimer définitivement ce match de la base ?')) return;
+      b.disabled = true;
+      try {
+        await deleteMatchOuvert(b.dataset.id);
+        await _log('config_modifie', `Match communautaire supprimé : ${b.dataset.id}`);
+        showToast('Match supprimé.', 'info');
       } catch (err) {
         showToast(err.message, 'error');
         b.disabled = false;

@@ -158,7 +158,7 @@ import {
   onAuthChange, loginJoueur, registerJoueur, logoutJoueur,
   setJoueurPublic, setJoueurPrive, getJoueurPrive,
   onJoueurPublic, onEquipes, createEquipe, joinEquipe, leaveEquipe, deleteEquipe,
-  onMatchsOuverts, createMatchOuvert, joinMatch, leaveMatch, updateMatchStatut
+  onMatchsOuverts, createMatchOuvert, joinMatch, leaveMatch, updateMatchStatut, deleteMatchOuvert
 } from './js/communaute-db.js';
 
 const $ = id => document.getElementById(id);
@@ -240,7 +240,7 @@ $('overlay').addEventListener('click', e => { if(e.target===$('overlay')) _close
 
 // ── MATCHS OUVERTS ────────────────────────────────────────────────────────────
 function _renderMatchs(body) {
-  const actifs = _matchs.filter(m => m.statut==='ouvert'||m.statut==='complet');
+  const actifs = _matchs.filter(m => (m.statut==='ouvert'||m.statut==='complet') && Object.keys(m.participants||{}).length > 0);
   body.innerHTML = `<div class="row-hdr"><p class="sec-title">Matchs disponibles</p><button class="btn btn-primary btn-sm" id="btn-new-match">+ Nouveau</button></div>` +
     (!actifs.length
       ? `<div class="empty-state"><div class="empty-icon">⚽</div><p>Aucun match ouvert pour l'instant.</p><p style="margin-top:8px;font-size:.85rem">Soyez le premier à en créer un !</p></div>`
@@ -288,8 +288,8 @@ async function _leaveMatch(matchId) {
   } catch(e) { alert(e.message); }
 }
 async function _cancelMatch(matchId) {
-  if (!confirm('Annuler ce match ? Cette action est irréversible.')) return;
-  try { await updateMatchStatut(matchId, { statut:'annule' }); } catch(e) { alert(e.message); }
+  if (!confirm('Annuler ce match ? Il sera supprimé définitivement.')) return;
+  try { await deleteMatchOuvert(matchId); } catch(e) { alert(e.message); }
 }
 
 function _openMatchDetail(matchId) {
